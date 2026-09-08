@@ -1,0 +1,45 @@
+[project]
+name = "freight-second-brain"
+version = "0.1.0"
+description = "Agentic second brain for dry-bulk freight-rate forecasting, qualitative research, and public-data ETL."
+readme = "README.md"
+authors = [
+    { name = "bryanchanrgb" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "httpx>=0.28",
+    "pandas>=2.2",
+    "pyarrow>=18.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "openpyxl>=3.1",
+    "xlrd>=2.0.1",
+    "python-dateutil>=2.9",
+    "feedparser>=6.0",
+    "lxml>=5.3",
+    "duckdb>=1.2",
+    "mcp>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+]
+
+[project.scripts]
+freight-second-brain = "freight_second_brain.cli:main"
+freight-sb = "freight_second_brain.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

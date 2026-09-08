@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "freight-second-brain": {
+      "type": "stdio",
+      "command": "/bin/bash",
+      "args": ["${workspaceFolder}/.cursor/run-mcp.sh"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

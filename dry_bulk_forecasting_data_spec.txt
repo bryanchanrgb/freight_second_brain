@@ -1,0 +1,1214 @@
+# Dry-Bulk Commodity Price, Freight, and Market-Outlook Data Specification
+
+**Version:** 0.2
+**Prepared:** 2026-09-07 UTC
+**Revision:** Added the public qualitative-news claims pipeline, evidence-graph schema, source-independence controls, contradiction handling, freshness rules, and prototype research results.
+**Purpose:** Define a comprehensive, provenance-aware data system for forecasting dry-bulk commodity prices, freight rates, and producing qualitative market outlooks from news, research, and physical-market signals.
+**Audience:** Human researchers, data engineers, quantitative analysts, and AI agents implementing or extending the system.
+
+---
+
+## 1. Scope and design principles
+
+The system should forecast at least four distinct target families:
+
+1. **Commodity prices:** iron ore, metallurgical/thermal coal, grains/oilseeds, bauxite/alumina, fertilizer and other dry-bulk commodities.
+2. **Freight rates:** BDI, BCI, BPI, BSI, BHSI, route assessments, time-charter equivalents, and voyage rates.
+3. **Forward market expectations:** FFA/futures curves, options where available, and broker/analyst forecasts.
+4. **Qualitative outlooks:** structured, cited assessments of supply, demand, fleet, geopolitics, weather, regulation, and market regime.
+
+The implementation must:
+
+- Preserve the original publication timestamp and later revisions.
+- Separate realized observations, assessments, forecasts, and narratives.
+- Avoid look-ahead bias by using data vintages available at the forecast time.
+- Record units, currency, route/vessel definitions, methodology versions, and licensing.
+- Distinguish primary data from derived data and model-generated interpretation.
+- Store raw immutable snapshots before normalization.
+- Make every qualitative claim traceable to a source and evidence excerpt.
+- Prefer APIs, bulk files, CSV/XLSX, RSS, and stable report URLs over browser scraping.
+
+This is a market-research and forecasting system, not investment advice.
+
+---
+
+## 2. Proposed target taxonomy
+
+### 2.1 Freight targets
+
+Create separate daily series for:
+
+- `BDI`: Baltic Dry Index.
+- `BCI`: Baltic Capesize Index.
+- `BPI`: Baltic Panamax Index.
+- `BSI`: Baltic Supramax Index.
+- `BHSI`: Baltic Handysize Index.
+- Capesize 5TC and route series: C2, C3, C5, C7, C8_182, C9_182, C10_182, C14_182, C16_182, C17.
+- Panamax 5TC and route series: P1A_82, P2A_82, P3A_82, P4_82, P5_82, P6_82, P7, P8.
+- Supramax 10TC/11TC and route series: S1B, S1C, S2, S3, S4A, S4B, S5, S8, S9, S10, S15.
+- Handysize 7TC and route series where licensed.
+
+Baltic documents define the BDI as 40% Capesize, 30% Panamax and 30% Supramax and publish vessel assumptions and route formulas.[1][2]
+
+### 2.2 Commodity targets
+
+Recommended initial commodities:
+
+- Iron ore: 62% Fe benchmark, fines, pellets/concentrate where available.
+- Metallurgical coal and thermal coal.
+- Wheat, corn/maize, barley, rice, soybeans and soybean meal.
+- Bauxite and alumina.
+- Phosphate rock and fertilizer products.
+- Cement/clinker and selected minor bulks.
+
+Commodity targets must include benchmark name, quotation location, grade/specification, currency, unit, assessment time, and whether spot, futures settlement, index, or forecast.
+
+---
+
+## 3. Source register
+
+Status labels:
+
+- **Verified public:** source page successfully retrieved and access method confirmed.
+- **Verified licensed:** public product page confirms the product, but data requires account, subscription, exchange membership, or license.
+- **Verified partial:** public page works, but full machine access or history is restricted.
+- **Fallback:** useful substitute or open proxy, not equivalent to primary data.
+
+### A. Primary freight and rate sources
+
+| Source | Status | Data and purpose | Access pattern | Constraints / fallback |
+|---|---|---|---|---|
+| **Baltic Exchange Dry Services**[1] | Verified licensed/public methodology | Primary dry-bulk benchmarks, route assessments, time-charter and voyage rates, vessel assumptions, market/fixture reports; historical data since 1985 | Public HTML methodology and route pages; licensed historical/live files, APIs, data partners, or member access | Full history and granular assessments are commercial. Use ICE/Bloomberg/LSEG distributors, Trading Economics, Investing.com, or open datasets for prototype fallback. |
+| **Baltic Exchange Indices**[2] | Verified public methodology | Exact index definitions and formulas; route codes and weights | Stable HTML | Use as a versioned data dictionary; archive page snapshots because methodology can change. |
+| **Baltic fixtures and reports** | Verified public/licensed | Daily fixture list, market commentary, route activity, historical fixtures | Public selected pages; full fixture integration/data access by license | Treat fixture data as transaction-like but selection-biased. Do not mix with assessed rate without `rate_type`. |
+| **ICE Baltic Exchange data**[3] | Verified licensed | Historical and end-of-day Baltic data | ICE Connect, Consolidated History, licensed API/data feed | Institutional option when direct Baltic contract is inconvenient. |
+| **EEX Dry Freight**[4] | Verified licensed/public contract specs | Capesize, Panamax, Supramax, Handysize time-charter futures; Panamax trip futures; Capesize voyage futures; options | Public product specification pages; exchange historical/settlement data, vendor feeds, or account access | Final settlement is average of daily Baltic spot assessments for expiry month. Preserve contract code and delivery month. |
+| **SGX FFA / freight futures**[5] | Verified licensed/partial public | Dry-bulk time-charter baskets and voyage-route FFAs/futures | Product pages, delayed prices, SGX historical derivatives pages, Data Direct/vendor feeds | Browser pages can require session/cookies. Use exchange data service or vendor export. |
+| **CME dry freight**[6] | Partial/contract-dependent | Freight futures/clearing information and potentially settlements | CME product pages, ClearPort, DataMine or licensed vendors | Verify currently listed contracts before implementation; use EEX/SGX if unavailable. |
+| **Trading Economics Baltic Dry**[7] | Verified public/paid API | Daily BDI and related chart/history/news; prototype benchmark | Web page, chart export, API access (subscription/key likely required) | Secondary source; cross-check against Baltic. Respect terms; no scraping if prohibited. |
+| **Investing.com BDI history** | Verified partial | Daily price/open/high/low/change for BDI | Web table and download UI | Automation may be blocked. Use manually exported CSV or licensed alternative. |
+| **OilPriceAPI BDI** | Verified licensed API | Latest BDI and related freight index API | REST JSON: `GET /v1/prices/latest?by_code=BALTIC_DRY_INDEX`, API token | Convenient automated proxy, but not primary benchmark. |
+| **Mendeley BDI dataset**[8] | Verified public | Daily Baltic sub-index data, 2012-08-01 to 2019-07-31 | Dataset download, likely CSV/XLS/archive | Excellent reproducible baseline; verify license and fields before redistribution. |
+| **Databento EEX data**[9] | Verified licensed | Exchange data distribution; catalog lists EEX Baltic freight products such as PTCM | REST/client APIs, historical files, normalized market data | Commercial but developer-friendly; useful for futures/settlements. |
+
+### B. Commodity price and macro sources
+
+| Source | Status | Data and purpose | Access pattern | Constraints / fallback |
+|---|---|---|---|---|
+| **World Bank Pink Sheet / Commodity Markets**[10] | Verified public | Monthly/annual commodity prices, coal, metals, agricultural commodities, energy; outlook reports and forecasts | XLSX, PDF, stable document URLs, report pages; public license/terms | Monthly granularity; use IMF, exchange data, or licensed vendors for daily prices. |
+| **IMF Primary Commodity Prices**[11] | Verified public | Monthly international commodity prices; commodity terms-of-trade indices for 182 economies; technical documentation | Excel database, IMF Data Portal, downloadable XLSX | Monthly; useful macro benchmark and terms-of-trade features. |
+| **UNCTAD commodity prices** | Verified public | Annual commodity quotations and metadata, including grains, fuels, metals, minerals | UNCTADstat web tables/downloads | Annual/limited granularity; use World Bank/IMF for monthly. |
+| **EIA Open Data**[12] | Verified public API | Coal, energy production, consumption, imports/exports, prices, stocks; petroleum/bunker proxies | REST API, browser, Excel add-ons, bulk/API documentation; key generally required | Strong for coal and energy; mostly US or energy-centric. |
+| **USDA FAS PSD / WASDE**[13] | Verified public API/downloads | World production, supply, demand, imports/exports and stocks for grains/oilseeds; monthly forecast vintages | PSD Online, OpenData API, downloadable commodity files, reports/PDF | Capture every release vintage; revisions are material. |
+| **FAOSTAT** | Verified public/download | Agricultural production, trade, balances and prices | Bulk CSV/ZIP, API/database downloads | Often annual or delayed; use USDA for forward supply/demand forecasts. |
+| **FAO Food Price Index** | Verified public | Monthly cereal and food-price indices; downloadable CSV and annual XLSX | Stable CSV/XLSX URLs and HTML release page | Broad index, not a substitute for specific grain benchmarks. |
+| **UN Comtrade**[14] | Verified public API/partial | Bilateral monthly/annual trade by product and partner: iron ore, coal, grain, bauxite, fertilizers, cement | REST/API JSON, web query, bulk files; premium limits for large downloads | The homepage may block automated extraction; use official API/developer portal or Python client. Build tonne and value flows and tonne-mile proxies. |
+| **USGS mineral statistics**[15] | Verified public | Global production, supply, demand, trade and outlook for iron ore, bauxite/alumina, coal, minerals | HTML/PDF, XLSX/CSV where provided, public-domain reports | Annual; useful supply baseline, mine events and reserve context. |
+| **Open database on global coal/metal mine production**[16] | Verified public | 1,171 mines, 80 materials, 2000–2021, manually compiled from public reports | Zenodo dataset/download; research paper and supplementary data | Historical and incomplete after 2021; useful mine-level supply features. |
+| **ICMM Global Mining Dataset** | Verified public/partial | Mine, smelter and refinery locations and facility information | Public dataset/download or request through ICMM | Check license and update cadence; use for facility-event mapping. |
+| **CME/ICE/SGX commodity futures** | Verified licensed | Iron ore, coal, grain, steel and other forward prices | Exchange APIs, vendor feeds, historical files, Databento where supported | Essential for forward expectations; record contract roll logic. |
+| **FRED** | Verified public API | Industrial production, GDP, rates, FX, trade, financial stress and global macro series | REST API, CSV/JSON/XML, bulk releases | Broad macro drivers; series metadata and vintage availability must be retained. |
+| **World Bank DataBank/API** | Verified public | GDP, industrial activity, trade, infrastructure, macro indicators | API, CSV, XLSX, bulk downloads | Useful for country/regional demand features. |
+| **UNIDO industrial production** | Public/partial | Manufacturing/industrial production indices | UNIDO statistics portal, downloads/API where available | Country coverage and release delays vary. |
+
+### C. Shipping supply, fleet and physical activity
+
+| Source | Status | Data and purpose | Access pattern | Constraints / fallback |
+|---|---|---|---|---|
+| **UNCTADstat maritime / seaborne trade**[17] | Verified public | Seaborne trade, dry-vs-liquid cargo, fleet, flags, ownership, port calls, time in port, vessel age/size | UNCTADstat tables/data views; World Bank Data360 CSV mirrors; PDF/HTML reports | Aggregated and lagged, but transparent and public. |
+| **World Bank Data360 UNCTAD Maritime Transport**[18] | Verified public | 9 indicators, 2010–2023: port calls, time in port, vessel age/size/capacity | Direct wide CSV, SDMX CSV, data dictionary, JSON metadata | Public and easy to automate; not vessel-level. |
+| **UNCTAD Review of Maritime Transport 2025**[19] | Verified public PDF | Fleet, trade, dry-bulk rates, supply/demand narrative and statistics through June 2025 | PDF and linked data portals | Annual/periodic; extract tables and citations, not as daily data. |
+| **IMO GISIS** | Verified public/partial | Ship/company particulars, safety, casualties, selected fuel and regulatory modules | Browser portal; public modules may export CSV/XLS; some require account | Use for identity/enrichment; not a complete fleet time series. |
+| **Kpler AIS**[20] | Verified licensed | Low-latency global AIS, historical positions, port events, APIs, Snowflake/live streams | Commercial web, API/developer portal, Snowflake, NMEA streams | Best commercial physical-flow source; requires budget/license. |
+| **VesselFinder historical AIS**[21] | Verified licensed/request-based | Historical AIS since 2009; CSV/XLS positions, port calls, events, particulars | Request form and commercial delivery | More accessible than enterprise vendors for scoped pilot datasets; cost depends on volume/frequency. |
+| **Clarksons Research / SIN**[22] | Verified licensed/partial public | 150k ships, 2m positions/day; fleet, orderbook, trade, freight, earnings, asset values, macro flows, forecasts | SIN/World Fleet Register licensed platform, feeds and public insight pages | High-value institutional source; public content is only a sample. |
+| **Equasis** | Verified public with registration | Vessel identity, safety, ownership/management and inspection records | Browser account; limited bulk/API | Useful validation layer, not primary market feed. |
+| **AISstream.io / AISHub** | Public/community/partial | Live AIS and vessel signals | WebSocket/API/community access | Useful low-cost prototype; coverage and history limitations. |
+| **Global Coal and Metal Mine Production Zenodo**[16] | Verified public | Mine-level supply and production | Zenodo download | Integrate with facility geocoding and event news. |
+| **ICMM facilities dataset** | Public/partial | Global mines, smelters and refineries | Dataset download/request | Useful static facility inventory and disruption mapping. |
+
+### D. Research, forecasts, news and qualitative signals
+
+| Source | Status | Data and purpose | Access pattern | Constraints / fallback |
+|---|---|---|---|---|
+| **BIMCO market analysis**[23] | Verified public/partial | Dry-bulk outlook, supply/demand, fleet, trade and weekly statistics; full reports often members-only | Public HTML and free video summaries; member portal for full reports | Store publication date, forecast horizon, exact narrative and forecast vintage. |
+| **Drewry dry-bulk research** | Public/partial/licensed | Dry-bulk outlook, demand/supply and market commentary | Public research-opinion HTML; paid reports/data | Use public excerpts as qualitative signals; license for full forecasts. |
+| **Clarksons SIN briefings**[22] | Verified partial/licensed | Frequent market briefings, dry-bulk trade, fleet, earnings and outlook | Public headline/selected articles; SIN login for full content | Capture public text; do not bypass login. |
+| **Baltic Exchange market reports**[1] | Verified public/licensed | Daily fixture list, dry-bulk news and market reports | Public selected pages; member/licensed feeds | High value for rate regime and event labels. |
+| **UNCTAD Reviews**[19] | Verified public | Annual maritime trade/fleet/rate analysis and structural outlook | PDF/HTML | Slow-moving structural benchmark. |
+| **World Bank Commodity Markets Outlook**[10] | Verified public | Commodity price forecasts, macro/geopolitical analysis | PDF, XLSX, report/archive pages | Forecast-vintage source; not a shipping-specific forecast. |
+| **IMF commodity special features**[11] | Verified public | Commodity market development and outlook | PDF/HTML publication pages | Macro qualitative benchmark. |
+| **Reuters shipping/commodities** | Public/partial | Timely mine, trade, weather, policy, freight and commodity news | HTML/RSS/search; some content may be restricted | Use licensed feed or approved archive; store only permitted excerpts/metadata. |
+| **Hellenic Shipping News**[24] | Verified public RSS | Dry bulk market news and shipping reports | RSS feed: `https://www.hellenicshippingnews.com/category/shipping-news/dry-bulk-market/feed/`; HTML | Good automated event/news source; content protection may affect full extraction. |
+| **Splash 24/7** | Public/partial | Maritime news, analysis and interviews | HTML, newsletters/RSS where available | Use official access; do not scrape around paywalls. |
+| **TradeWinds** | Public/paid | Shipping news, fleet, owners, fixtures, casualties and market analysis | HTML/newsletters/subscription | Treat paywalled articles as licensed-only; use headlines and public summaries where permitted. |
+| **S&P Global Commodity Insights / Platts** | Verified licensed | Commodity assessments, freight, dry-bulk trade, supply, demand and shipping datasets | API, data feed, enterprise platform and reports | Institutional-quality option for commodity and freight granular data. |
+| **Argus Media** | Verified licensed | Commodity prices, coal, metals, fertilizer, freight and market reports | APIs, feeds, downloadable reports/platform | Strong alternative to S&P; commercial license. |
+| **Bloomberg / LSEG / FactSet** | Verified licensed | Exchange prices, futures, news, macro, estimates and alternative data | Terminal/API/data license | Broadest integrated financial layer; expensive, permissions and redistribution restrictions. |
+| **USDA FAS GAIN reports** | Verified public | Country/commodity event reports, policy, crop and trade outlooks | HTML/PDF/API-like download URLs | Strong narrative/event layer for grain flows and policy changes. |
+| **Weather and climate sources** | Public/licensed | ENSO, storms, precipitation, drought, harvest weather and extreme events | NOAA/NASA/ECMWF APIs and downloads; licensed forecasts for higher resolution | Create event and seasonal features; align publication time and forecast horizon. |
+| **GDELT / GNews / RSS aggregators** | Public/paid depending service | Large-scale news metadata, topic and sentiment signals | APIs, feeds, downloadable archives | Use only as discovery/coverage layer; validate material claims against primary sources. |
+
+---
+
+## 4. Historical-record availability audit
+
+This audit answers a specific question for every source in the source register: **does the source provide observations at multiple historical points in time, rather than only a current snapshot, product description, or forward-looking report?** The answer is recorded as `yes`, `partial`, or `no/primarily current`. Historical availability does not imply that the history is free, complete, revision-free, or legally redistributable.
+
+### 4.1 Freight, indices, and forward markets
+
+| Source | Historical records? | What history is available | Practical access / fallback |
+|---|---|---|---|
+| Baltic Exchange Dry Services | **Yes — licensed** | Baltic states that dry-bulk history extends to 1985; route, time-charter, voyage, fixture and forward histories vary by product and license | License the series or obtain via ICE/Bloomberg/LSEG. For public prototyping use Trading Economics, Investing.com, Mendeley, or a manually archived public series, clearly labelled secondary. |
+| Baltic Exchange Indices | **Partial/public methodology** | Historical definitions and formulas are available; numerical history is not generally fully downloadable without a data license | Use the page as a methodology/mapping table and archive version changes. Obtain numerical history from Baltic/licensees. |
+| Baltic fixtures and reports | **Yes — mostly licensed** | Daily fixtures and market reports; Baltic describes a large historical fixture archive and integration service | Request historical fixture feed. Do not reconstruct from snippets unless the source license permits it. |
+| ICE Baltic Exchange data | **Yes — licensed** | ICE Consolidated History includes historical and end-of-day Baltic products | Use ICE data API/export or a data vendor. This is a primary practical alternative to direct Baltic licensing. |
+| EEX Dry Freight | **Yes — licensed** | Historical futures quotes/settlements by contract and expiry, subject to exchange/data permissions | Use EEX historical data or a distributor such as Databento; store settlement calendar and contract specifications. |
+| SGX FFA/futures | **Yes — partial/licensed** | SGX exposes historical-data links and product history; full depth/entitlements vary | Use SGX Data Direct, historical derivatives export, or vendor feed. Browser pages alone are not a reliable historical ingestion method. |
+| CME dry freight | **Yes — contract-dependent/licensed** | Historical settlements may be available through CME data products; public pages mainly document contracts | Confirm active symbols and obtain CME DataMine/ClearPort/vendor history. Use EEX/SGX as fallback where equivalent contracts exist. |
+| Trading Economics Baltic Dry | **Yes — public/paid** | Daily chart history and downloadable/API access are advertised | Use export/API with subscription; cross-check against Baltic and save retrieval timestamp. |
+| Investing.com BDI | **Yes — partial** | Historical daily table with date, price, open/high/low and change over selected windows | Download through the site or browser. Automated scraping may be blocked; use Trading Economics or OilPriceAPI fallback. |
+| OilPriceAPI BDI | **Yes — API plan dependent** | Latest endpoint plus historical price products depending on plan | REST API with key; verify historical endpoint and retention before relying on it. |
+| Mendeley BDI dataset | **Yes — fixed historical sample** | Daily sub-indices from 2012-08-01 through 2019-07-31 | Direct dataset download; use as a reproducible baseline, not as current truth. |
+| Databento EEX data | **Yes — licensed** | Historical normalized exchange data where the EEX product is covered | Databento API/client and bulk historical files; confirm symbol availability and retention. |
+
+### 4.2 Commodity prices, trade, supply and macro
+
+| Source | Historical records? | What history is available | Practical access / fallback |
+|---|---|---|---|
+| World Bank Pink Sheet / Commodity Markets | **Yes** | Monthly and annual commodity history; World Bank publishes historical XLSX and forecast/report vintages | Direct XLSX/PDF; archive each release because history may be revised. |
+| IMF Primary Commodity Prices | **Yes** | Monthly price history and commodity terms-of-trade indices with long historical coverage; IMF page provides current XLSX and technical documentation | Direct XLSX/Data Portal. Use as a monthly cross-check for World Bank prices. |
+| UNCTAD commodity prices | **Yes — mostly annual** | Annual averages of monthly quotations for major commodities | UNCTADstat table/download. Use World Bank/IMF for higher-frequency history. |
+| EIA Open Data | **Yes** | Daily, weekly, monthly and annual energy histories; coal production, trade, consumption, prices and stocks have historical observations | REST API, browser and bulk/Excel tools. Store release/vintage metadata where available. |
+| USDA FAS PSD/WASDE | **Yes — with revisions** | Long historical production, supply, demand, imports, exports and stocks plus monthly forecast releases | PSD API/downloads and report PDFs. Capture every release as a vintage; current API values alone are not sufficient for backtesting. |
+| FAOSTAT | **Yes** | Historical agricultural production, trade, balances and price datasets, generally annual with some higher-frequency series | Bulk CSV/ZIP/API. Use USDA PSD for monthly forecast vintages. |
+| FAO Food Price Index | **Yes** | Monthly nominal index from 1990 onward and annual nominal/real history from 1961 | Stable CSV/XLSX downloads. Use as a broad food/cereal regime feature, not a route-specific target. |
+| UN Comtrade | **Yes** | Monthly and annual bilateral trade history by reporter, partner and HS commodity; depth depends on query and subscription | Official API/web query/bulk files. If homepage extraction fails, use developer API/Python client. Archive request parameters and response. |
+| USGS mineral statistics | **Yes — mostly annual** | Annual production, trade, reserves and commodity reports; historical PDF/CSV/XLS where provided | Direct public reports/downloads. Use company reports and mine database for higher-resolution mine history. |
+| Open global coal/metal mine-production database | **Yes — fixed 2000–2021 panel** | Mine-level production for 1,171 mines and 80 materials through 2021 | Zenodo download. Extend with annual reports, USGS, ICMM and company disclosures. |
+| ICMM Global Mining Dataset | **Partial** | Historical facility identity/location may be available by release, but it is primarily a facility inventory rather than a production time series | Download/retrieve release snapshots; supplement with mine-production datasets and company filings. |
+| CME/ICE/SGX commodity futures | **Yes — licensed** | Historical daily/intraday futures prices and settlements, depending on venue/product | Official APIs/data services or licensed vendors. Maintain continuous-contract roll logic and raw contract-level history. |
+| FRED | **Yes** | Long historical macro and market time series; many series have vintage/release-date support | REST API/CSV/JSON/XML/bulk. Use ALFRED-style vintage retrieval where available to prevent look-ahead. |
+| World Bank DataBank/API | **Yes** | Historical country macro, trade, GDP, infrastructure and development indicators | API/CSV/XLSX/bulk. Frequency is usually annual or quarterly. |
+| UNIDO industrial production | **Yes — variable** | Historical industrial production indices for covered countries; release lags and coverage differ | UNIDO portal/download/API where available. Use national statistical agencies or FRED/OECD as fallback. |
+
+### 4.3 Fleet, vessel activity, AIS and physical supply
+
+| Source | Historical records? | What history is available | Practical access / fallback |
+|---|---|---|---|
+| UNCTADstat maritime/seaborne trade | **Yes** | Historical seaborne trade, fleet, port-call and maritime indicators; frequency is annual/semi-annual/periodic depending table | UNCTADstat downloads and linked data views. Preserve table version and publication date. |
+| World Bank Data360 UNCTAD Maritime Transport | **Yes — 2010–2023 in verified dataset** | CSV/SDMX history for port calls, time in port, vessel age/size/capacity and related indicators | Direct CSV/metadata URLs; periodic refreshes should be snapshotted. It is aggregated, not vessel-level. |
+| UNCTAD Review of Maritime Transport | **Yes — annual report history** | Annual editions and linked statistical data; 2025 report includes dry-bulk rate/supply-demand discussion through June 2025 | Archive PDFs and extract tables. Use UNCTADstat for machine-readable series. |
+| IMO GISIS | **Partial** | Historical ship/company records, casualties and selected regulatory/fuel modules; coverage/export varies by module | Public module export or authorized account. For fleet time series use UNCTAD, Equasis, Clarksons or AIS. |
+| Kpler AIS | **Yes — licensed** | Historical positions, port events, voyage and vessel data; depth and retention depend on license | API, Snowflake/live streams and commercial platform. Request historical backfill and derived-feature rights. |
+| VesselFinder historical AIS | **Yes — licensed/request-based** | Archive since 2009; positions, port calls, events and particulars delivered as CSV/XLS | Request scoped data by vessel, port, area and UTC window. Good pilot alternative to Kpler. |
+| Clarksons Research/SIN | **Yes — licensed** | Historical fleet, orderbook, positions, trade, freight, earnings, asset values and forecasts | SIN/World Fleet Register and data feeds. Public pages provide only selected history/insights. |
+| Equasis | **Partial historical** | Vessel/company identity, inspection and safety records with historical entries where retained | Browser account and manual/export access. Use as enrichment/validation, not a continuous market series. |
+| AISstream.io/AISHub | **Partial** | Live stream and potentially limited retained history; coverage depends on community/network | API/WebSocket/community access. For back history use VesselFinder/Kpler or UNCTAD aggregates. |
+| Global Coal/Metal Mine Production Zenodo | **Yes — 2000–2021** | Historical mine-level production | Direct Zenodo download; extend with annual releases and company disclosures. |
+| ICMM facilities dataset | **Partial** | Facility inventory/history by dataset release; not a complete production series | Archive each release, geocode facilities and join to events/production datasets. |
+
+### 4.4 Research, forecasts, news and qualitative sources
+
+For narrative sources, “historical records” means one or both of: (a) a dated archive of past publications, or (b) forecast vintages whose original forecasts can be compared with realized outcomes. A current article without an archive is not a usable historical series.
+
+| Source | Historical records? | What history is available | Practical access / fallback |
+|---|---|---|---|
+| BIMCO market analysis | **Yes — archive, partial full text** | Dated market-overview pages, videos and “Number of the Week” items; full member reports and third-party reports may be restricted | Archive public pages/videos and forecast metadata. Subscribe for full historical reports. |
+| Drewry dry-bulk research | **Yes — archive/paid depth** | Dated research-opinion pages and report catalogue; historical full forecasts generally paid | Use public opinion archive for qualitative history; license reports for numerical forecast vintages. |
+| Clarksons SIN briefings | **Yes — archive, licensed depth** | SIN exposes a dated article/briefing archive; full content and market series require login | Archive legally accessible headlines/abstracts; license SIN for full history. |
+| Baltic Exchange market reports | **Yes — partial/public/licensed** | Dated daily/weekly market reports and fixture/news pages; complete historical feed requires license | RSS/HTML where available; license full archive or use Hellenic/other public sources as fallback. |
+| UNCTAD Reviews | **Yes** | Annual archive since 1968, with downloadable PDFs and linked statistics | Direct PDF/archive; use for structural regime labels and annual benchmark narratives. |
+| World Bank Commodity Markets Outlook | **Yes** | Report archive and price-forecast vintages by publication date | Archive PDF/XLSX and preserve publication date; do not replace old forecasts with current forecasts. |
+| IMF commodity special features | **Yes** | Dated WEO commodity-special-feature PDFs and commodity research archive | Direct PDF/HTML archive. Use for macro narrative and scenario labels. |
+| Reuters shipping/commodities | **Partial/yes** | Search/archive and RSS/licensed historical news depending entitlement; full article history may be restricted | License Reuters feed or use permitted headlines/metadata; corroborate with public primary sources. |
+| Hellenic Shipping News | **Yes** | HTML category archive and dedicated dry-bulk RSS; dated articles | RSS ingestion is the preferred access. Full article extraction may encounter protection; store metadata and allowed excerpts. |
+| Splash 24/7 | **Yes — archive/partial** | Dated article archive and newsletters; some content can be restricted | Official HTML/RSS/newsletter; no bypassing paywalls. |
+| TradeWinds | **Yes — paid depth** | Dated archives/headlines; full historical content generally subscription | License/archive legally accessible metadata; use public secondary coverage for discovery only. |
+| S&P Global Commodity Insights/Platts | **Yes — licensed** | Historical assessments, reports, freight/commodity data and news depending product | API, data feed or platform license; verify redistribution rules. |
+| Argus Media | **Yes — licensed** | Historical commodity/freight assessments, reports and news depending package | API/feed/platform; commercial license. |
+| Bloomberg/LSEG/FactSet | **Yes — licensed** | Historical prices, futures, macro, news, estimates and alternatives | Terminal/API/data license; high cost and strict redistribution controls. |
+| USDA FAS GAIN reports | **Yes** | Large dated archive of country and commodity reports in PDF/HTML | Search/download report files; use publication date and forecast vintage. |
+| NOAA/NASA/ECMWF/weather sources | **Yes** | Historical weather/reanalysis and forecast archives vary by product | APIs, bulk GRIB/NetCDF/CSV; use reanalysis for history and forecast archives where available. |
+| GDELT/GNews/RSS aggregators | **Yes — metadata/archive dependent** | Historical event/news metadata and topic signals; source full text may not be retained | API/archive queries. Use as discovery and volume/sentiment layer, not authoritative facts. |
+
+### 4.5 Historical availability conclusion
+
+The main sources without a clean, freely downloadable historical series are direct Baltic granular data, exchange historical settlements, AIS, Clarksons/S&P/Argus/Bloomberg data, and full subscription research. They do not lack historical information; they lack unrestricted access. The preferred remedy is a licensed feed or official export. For a public-data MVP, use the verified historical substitutes: Mendeley BDI, Trading Economics/Investing.com exports, World Bank/IMF XLSX, EIA API, USDA PSD vintages, FAOSTAT, UN Comtrade, UNCTAD/Data360 CSV, USGS reports, the Zenodo mine panel, FRED, public report archives, and Hellenic RSS.
+
+### 4.6 Historical-data acceptance tests
+
+A source should not be marked “historically usable” until the ingestion test confirms:
+
+- At least two non-identical observation dates can be retrieved.
+- The returned data includes a date/period field and a stable series/instrument identifier.
+- Historical coverage start/end and frequency are recorded.
+- The source distinguishes observation date from publication/revision date where applicable.
+- A second retrieval produces an identical content hash or a documented revision.
+- The license permits the intended storage, modeling and derived-feature use.
+
+For forecast sources, add the stronger test:
+
+- The original forecast can be stored with its publication timestamp and later matched to the realized target without replacing the original vintage.
+
+---
+
+## 4.7 Source-specific fallback map
+
+| If unavailable | First fallback | Second fallback |
+|---|---|---|
+| Baltic granular history | ICE/Bloomberg/LSEG/Databento | Trading Economics, Mendeley, Investing.com |
+| EEX/SGX/CME settlements | Exchange data vendor | FFA/forecast reports and public chart histories |
+| Kpler AIS | VesselFinder scoped history | UNCTAD/Data360 port calls, AISstream/AISHub |
+| Clarksons fleet/orderbook | UNCTAD fleet and RMT | ICMM/mine database/company filings |
+| S&P/Platts/Argus commodity assessments | World Bank/IMF benchmark prices | Exchange futures settlement, public official statistics |
+| Full BIMCO/Drewry/TradeWinds | Public summaries/videos/headlines | UNCTAD, World Bank, IMF, official company/government reports |
+| UN Comtrade API | Official bulk download/Python client | UNCTADstat, national trade portals, USDA/EIA |
+| USDA PSD vintages | WASDE PDFs/download files | FAOSTAT and national agriculture statistics |
+| Historical news text | RSS/headline metadata/GDELT | Official company, government, port and exchange releases |
+
+---
+
+## 4.8 Implementation requirement added by this audit
+
+The source catalog must include these fields for every source:
+
+```text
+historical_available: yes|partial|no
+history_start
+history_end
+history_frequency
+history_access_method
+history_requires_license
+history_revision_behavior
+history_snapshot_uri
+history_verified_at
+fallback_source_ids
+```
+
+A source marked `partial` or `no` cannot be used as a standalone backtest target. It may still be used for current-state monitoring or qualitative outlooks, but the system must label that limitation in generated outputs.
+
+## 4.9 Audit date
+
+This historical-record audit was performed on 2026-09-04 UTC using official source pages, data portals, downloadable files, search results and extracted documentation. Availability may change; the ingestion system must re-run the acceptance tests periodically and record status changes.
+
+## 5. Factors to represent in the feature store
+
+### 5.1 Freight market state
+
+- Current and lagged BDI/BCI/BPI/BSI/BHSI.
+- Route-level spread and dispersion.
+- Time-charter versus voyage-rate spreads.
+- Spot-to-FFA basis.
+- Futures curve slope, curvature and implied volatility.
+- Freight momentum, rolling volatility, drawdown and regime state.
+- Fixture count, cargo count, reported open tonnage and cancellations where available.
+
+### 5.2 Cargo demand
+
+- China iron ore imports and steel output.
+- Chinese coal imports, domestic production and power demand.
+- Grain exports from US, Brazil, Argentina, Australia, Black Sea and EU.
+- China, India, Japan and Korea import demand.
+- Bauxite/alumina exports from Guinea, Australia, Brazil and Indonesia.
+- Fertilizer and minor-bulk trade.
+- Bilateral trade flows, route-specific tonnage and tonne-mile estimates.
+- Inventories, crop conditions, harvest calendars and stock-to-use ratios.
+
+### 5.3 Commodity fundamentals
+
+- Spot and futures commodity prices.
+- Processing margins and crack/spread economics.
+- Iron ore steel-mill margins and blast-furnace/electric-arc activity.
+- Coal power/gas switching economics.
+- Grain basis, crop forecasts and export inspections.
+- Bauxite/alumina refinery capacity and outages.
+- Fertilizer plant outages and seasonal application demand.
+
+### 5.4 Vessel supply
+
+- Fleet count and DWT by vessel class.
+- Age distribution.
+- Orderbook, deliveries, scrapping and conversions.
+- Yard capacity and newbuilding prices.
+- Slow steaming and speed/consumption assumptions.
+- Fleet utilization and ballast/laden share.
+- Port congestion, waiting time and canal/route restrictions.
+- Fuel prices and emissions/regulatory costs.
+
+### 5.5 Macro and financial variables
+
+- Global and regional industrial production.
+- China property and infrastructure activity.
+- GDP and trade forecasts.
+- USD, interest rates and financial stress.
+- Commodity risk premia.
+- Equity and mining-stock indicators.
+- Sanctions, tariffs and trade-policy events.
+
+### 5.6 Event and qualitative variables
+
+Create a structured event table rather than leaving news as unstructured text:
+
+```text
+event_id
+published_at
+observed_at
+source
+source_url
+headline
+commodity
+vessel_class
+region
+route
+factor_type: supply|demand|fleet|port|weather|policy|geopolitics|cost|regulation
+polarity: bullish|bearish|mixed|unknown
+magnitude: low|medium|high
+expected_horizon: days|weeks|months|years
+confidence
+extracted_evidence
+entities
+revision_status
+```
+
+Examples include mine shutdowns, port strikes, canal disruption, export bans, crop damage, steel curbs, fleet orders, scrapping surges, sanctions, weather warnings and changes in Chinese import policy.
+
+### 5.7 Public claims and evidence graph
+
+The qualitative layer must transform public news, research reports, market pages, forecasts and user-reviewed material into atomic, citable claims. Do not store news only as embeddings or summaries. Store the source, claim, normalized entities, time semantics, provenance and relationships needed to reconstruct why the system reached an outlook.
+
+Minimum claim schema:
+
+```text
+claim_id
+canonical_claim_key
+source_id
+source_url
+source_type
+publisher
+publication_time
+retrieved_time
+claim_text
+claim_type: observation|explanation|forecast|scenario|risk|methodology
+subject_entity
+subject_type: index|vessel_class|commodity|country|route|port|event|macro_factor
+normalized_entities
+geography
+vessel_class
+commodity
+route
+horizon_start
+horizon_end
+horizon_label
+polarity: bullish|bearish|mixed|neutral|unknown
+magnitude_text
+confidence: explicit|inferred|unknown
+provenance: primary|secondary|syndicated|user_generated|agent_synthesis
+independence_group
+source_quality
+source_freshness
+retrieval_status: full_text|public_summary|search_snippet|inferred
+is_duplicate
+duplicate_of
+contradiction_group
+contradiction_type: direction|horizon|magnitude|scope|internal_tension|outcome_reversal|none
+supporting_evidence
+raw_object_uri
+parser_version
+notes
+```
+
+Required graph nodes:
+
+- `Source`: publisher, URL, source type, access status, quality, publication/retrieval times, content hash, license and upstream lineage.
+- `Claim`: verbatim or minimally edited text plus normalized fields above.
+- `Entity`: canonical index, vessel class, commodity, country, port, route, company or event ID with aliases.
+- `Forecast`: target, target period, horizon, forecast value/range/direction, assumptions, scenario and source vintage.
+- `Observation`: realized rate, index, commodity, trade, event or market-state measurement.
+- `Event`: disruption, demand/supply change, policy, weather or routing event with start/end, affected entities and mechanism.
+- `Outcome`: later realized value or qualitative resolution linked to the original information set.
+- `Feedback`: user adjustment to relevance, strength, source reliability or hypothesis status; it must not mutate raw source truth.
+
+Required graph edges:
+
+```text
+supports
+contradicts
+duplicates
+syndicated_from
+derived_from
+affects
+forecast_for
+realized_as
+has_assumption
+annotated_by_user
+```
+
+Keep current observations, forecasts, explanations, market-implied expectations and later outcomes as distinct claim/target types. A source count is not an independent-evidence count.
+
+### 5.8 Source independence, deduplication and contradiction rules
+
+Deduplicate by canonical URL, publisher, title/date, shared attribution, shared numerical values, text similarity and common event identity. Preserve lineage records even when claims are grouped. Repeated reports of one original market move must not increase corroboration as if they were independent sources.
+
+Create an `independence_group` for each underlying information origin. A report that cites Bloomberg, Clarksons, IEA or another research publisher retains that upstream lineage and is not counted as independent evidence from each cited provider unless the upstream source was separately retrieved.
+
+Only compare claims for contradiction after aligning:
+
+- target and vessel class;
+- commodity and route/geography;
+- observation versus forecast versus explanation;
+- publication vintage;
+- forecast horizon and target period;
+- units and magnitude definition.
+
+Contradiction types must distinguish:
+
+- **Direction:** bullish versus bearish for the same aligned target/horizon.
+- **Horizon:** short-term observation versus medium-term forecast.
+- **Magnitude:** direction agrees but numeric expectations differ.
+- **Scope:** Capesize versus Panamax, or one geography/commodity versus another.
+- **Internal tension:** one source reports positive momentum but neutral fundamentals.
+- **Outcome reversal:** later realized value moves against the earlier signal.
+
+Preserve unresolved disagreement. Do not average contradictory claims into an unsupported consensus.
+
+### 5.9 News freshness and forecast-vintage rules
+
+Use separate freshness classes:
+
+```text
+current: 0-7 days
+recent: 8-30 days
+aging: 31-90 days
+historical_vintage: >90 days or forecast period completed
+post_cutoff_outcome: published after the information cutoff
+```
+
+For a current evidence canvas, default to current and recent claims. Historical vintages remain valuable for source calibration, forecast evaluation and analogues but must not be presented as current evidence. Post-cutoff observations are outcome records only and must not enter the original forecast information set.
+
+Every research run must store:
+
+```text
+run_id
+scope_start
+scope_end
+information_cutoff
+query_set
+source_registry_version
+parser_versions
+raw_snapshot_manifest
+claim_count
+independent_group_count
+contradiction_group_count
+```
+
+---
+
+## 6. Availability verification and proposed access methods
+
+### Directly accessible now
+
+- Baltic methodology and route definitions: stable HTML.[1][2]
+- EEX dry-freight contract definitions: stable HTML.[4]
+- UNCTAD/World Bank Data360 maritime CSV files: direct downloads.[18]
+- IMF commodity XLSX and documentation: direct files.[11]
+- World Bank monthly and annual commodity XLSX: direct files.[10]
+- EIA open-data API/docs: direct API and browser.[12]
+- USDA PSD portal and downloadable files/API instructions: public web/API.[13]
+- UNCTAD Review 2025 PDF: direct PDF.[19]
+- Clarksons public research description and selected insights: public HTML.[22]
+- VesselFinder data description/request: public page; data requires quote.[21]
+- Hellenic Shipping News dry-bulk RSS: direct RSS URL.[24]
+- Open mine-production database: Zenodo download.[16]
+
+### Accessible with a paid data license or account
+
+- Direct Baltic historical/granular feeds.
+- EEX/SGX/CME historical market data and settlements.
+- Kpler AIS and maritime APIs.
+- Clarksons SIN/World Fleet Register.
+- VesselFinder bulk historical AIS.
+- S&P Global/Platts.
+- Argus.
+- Bloomberg, LSEG, FactSet.
+- Full BIMCO, Drewry, TradeWinds and other subscription research.
+
+### Proposed methods for inaccessible or restricted sources
+
+1. **Exchange data:** use official historical-data products, a licensed distributor such as ICE/Bloomberg/LSEG/Databento, or a broker-provided feed. Never scrape a logged-in exchange interface.
+2. **Commercial AIS:** request a scoped pilot for only dry-bulk vessel classes and target ports/routes; negotiate historical backfill and permitted derived-feature use. If budget is unavailable, use UNCTAD aggregates, VesselFinder samples, AISstream/AISHub, and public port-call data.
+3. **Paywalled research:** store metadata and legally accessible abstracts/headlines; subscribe to the report or use public BIMCO video summaries, UNCTAD, World Bank, IMF, and official company filings as substitutes.
+4. **News blocked by automation:** use RSS, official APIs, newsletters, browser access where permitted, or licensed feeds. Do not bypass CAPTCHA, paywalls, robots, or access controls.
+5. **UN Comtrade homepage blocked to extraction:** use the official developer/API endpoints, Python client, or bulk-download workflow; archive request parameters and API responses.
+6. **SGX dynamic/session pages:** use SGX Data Direct, historical-data downloads, or exchange/vendor feeds rather than brittle browser scraping.
+7. **Sparse mine data:** combine the open mine database, USGS, company annual reports, regulator releases, satellite/remote-sensing data, and structured news events; flag estimated production separately.
+8. **Forecast reports with revisions:** capture a PDF/HTML snapshot at publication and store `forecast_vintage`; never overwrite the original forecast.
+
+---
+
+## 7. Ingestion and storage specification
+
+### 7.1 Raw landing zone
+
+Every ingestion should write an immutable object:
+
+```text
+raw/{source}/{dataset}/{YYYY}/{MM}/{DD}/
+  payload
+  request.json
+  response_headers.json
+  manifest.json
+```
+
+Manifest fields:
+
+```text
+source
+url_or_endpoint
+retrieved_at_utc
+published_at_if_known
+coverage_start
+coverage_end
+content_hash
+license
+parser_version
+http_status
+status: complete|partial|blocked|failed
+```
+
+### 7.2 Canonical observation table
+
+```text
+observation_id
+source_id
+instrument_or_series_id
+observed_at_utc
+published_at_utc
+vintage_id
+value
+unit
+currency
+frequency
+geography
+origin
+destination
+route
+commodity
+vessel_class
+rate_type
+methodology_version
+quality_flag
+raw_object_uri
+```
+
+### 7.3 Forecast-vintage table
+
+```text
+forecast_id
+source_id
+forecast_published_at
+target_period
+horizon
+entity
+variable
+point_forecast
+low_forecast
+high_forecast
+unit
+scenario
+source_text
+source_url
+access_level
+```
+
+### 7.4 News/event table
+
+Use the event schema above. Keep extracted evidence verbatim and cite the exact source URL. Store model-generated classification separately from source facts.
+
+### 7.5 Claims, sources and contradiction tables
+
+The minimum relational/JSONL implementation should include:
+
+```text
+sources
+  source_id, canonical_url, publisher, source_type, publication_time,
+  retrieved_time, access_status, license, content_hash, raw_object_uri,
+  upstream_source_ids, independence_group, quality, retrieval_status
+
+claims
+  claim_id, source_id, claim_text, claim_type, subject_entity, entities,
+  geography, vessel_class, commodity, route, horizon_start, horizon_end,
+  polarity, magnitude, confidence, provenance, independence_group,
+  source_freshness, retrieval_status, supporting_evidence, raw_object_uri
+
+claim_links
+  from_claim_id, to_claim_id, relation_type, rationale, created_by,
+  created_at
+
+contradictions
+  contradiction_group, claim_ids, contradiction_type, status, summary,
+  resolution, unresolved_reason, evidence_urls
+
+forecast_outcomes
+  forecast_claim_id, target_series_id, information_cutoff, target_period,
+  realized_value, realized_direction, error, timing_error, postmortem,
+  evaluated_at
+
+user_feedback
+  feedback_id, claim_id_or_group_id, user_id, adjustment, scope, reason,
+  created_at, expires_at
+```
+
+The prototype files are stored at `/opt/data/bdi_claims_prototype/` and include `schema.json`, `sources_clean.jsonl`, `claims_clean.jsonl`, `contradictions.jsonl`, `run_manifest.json` and `research_summary.md`. They are a reference implementation of the qualitative layer, not a substitute for the production warehouse.
+
+### 7.6 Data quality checks
+
+- Schema and type validation.
+- Duplicate observation detection.
+- Missing-date and holiday/calendar validation.
+- Outlier and jump detection, with alerts rather than silent winsorization.
+- Unit/currency validation.
+- Route/vessel methodology-change detection.
+- Revision/vintage consistency.
+- Cross-source reconciliation for BDI and sub-indices.
+- Freshness SLA by source.
+- Access/license status monitoring.
+
+---
+
+## 8. Forecasting and qualitative-outlook system design
+
+### 8.1 Forecast horizons
+
+- Nowcast: intraday/daily to one week.
+- Short term: 2–8 weeks.
+- Medium term: 3–12 months.
+- Structural: 1–5 years.
+
+### 8.2 Baseline models
+
+Start with transparent baselines before deep learning:
+
+- Seasonal naive and drift models.
+- ARIMA/ETS and dynamic regression.
+- VAR or Bayesian VAR for commodity/freight/macro interactions.
+- Gradient-boosted trees with lagged, rolling and event features.
+- Quantile regression for predictive intervals.
+- Regime-switching models for high/low freight states.
+- Hierarchical models across vessel classes and routes.
+- Sequence models/Temporal Fusion Transformer only after robust baselines.
+
+### 8.3 Validation
+
+- Walk-forward evaluation only.
+- Nested time-series validation for feature selection.
+- Compare to seasonal naive, FFA implied rate and analyst consensus.
+- Separate normal, disruption and regime-shift periods.
+- Metrics: MAE, RMSE, MAPE where meaningful, pinball loss, CRPS, directional accuracy and calibration.
+- Evaluate forecast vintages using only information available at issuance time.
+- Test economic usefulness separately from statistical accuracy.
+
+### 8.4 Qualitative outlook generation
+
+The qualitative system should not simply summarize news. It should:
+
+1. Retrieve fresh primary data, reports, news and market observations.
+2. Cluster evidence by factor: supply, demand, fleet, route, cost, policy, weather, geopolitics.
+3. Deduplicate articles and identify corroboration.
+4. Extract evidence and publication dates.
+5. Assign direction, magnitude, horizon and confidence.
+6. Compare signals against price/freight action and market-implied expectations.
+7. Produce base, upside and downside narratives.
+8. State what would invalidate each scenario.
+
+Required output:
+
+```text
+as_of
+market_scope
+current_regime
+base_case
+bull_case
+bear_case
+key_drivers
+counter_drivers
+leading_indicators_to_watch
+catalysts
+risks
+confidence
+citations
+```
+
+### 8.5 AI/LLM role
+
+LLMs should be used for:
+
+- News extraction and event normalization.
+- Report table/paragraph extraction.
+- Entity and route resolution.
+- Evidence-grounded narrative synthesis.
+- Hypothesis generation and feature documentation.
+- Anomaly explanation.
+
+LLMs should not silently invent numerical forecasts or overwrite measured data. Numerical forecasts must come from versioned model runs, with the LLM explaining—not fabricating—the output.
+
+---
+
+## 9. MVP implementation plan
+
+### Phase 1 — Public-data baseline
+
+Ingest:
+
+- Baltic public definitions and an accessible BDI history source.
+- World Bank Pink Sheet.
+- IMF commodity XLSX.
+- EIA coal data.
+- USDA PSD/WASDE.
+- UN Comtrade selected monthly flows.
+- UNCTAD/World Bank Data360 maritime CSV.
+- FRED macro variables.
+- Hellenic RSS and selected official reports.
+- UNCTAD RMT and BIMCO public pages.
+
+Build daily/weekly/monthly aligned feature tables and backtest BDI, BCI, BPI and commodity benchmarks.
+
+### Phase 2 — Market expectations and richer physical signals
+
+Add:
+
+- EEX/SGX settlements.
+- Direct/licensed Baltic history.
+- AIS pilot from VesselFinder or Kpler.
+- Clarksons or S&P/Platts pilot data.
+- Route-level trade and tonne-mile features.
+- Structured event extraction and qualitative outlook generation.
+
+### Phase 3 — Institutional-grade system
+
+Add:
+
+- Full licensed freight/fixture/AIS feeds.
+- Real-time ingestion and monitoring.
+- Forecast-vintage archive.
+- Probabilistic multi-horizon models.
+- Scenario engine and decision dashboard.
+- Human review workflow for qualitative outlooks.
+- Data licensing, lineage, retention and disaster recovery controls.
+
+---
+
+## 10. Initial source priority
+
+**Tier 1 — Build first:** Baltic benchmarks, World Bank Pink Sheet, IMF prices, EIA, USDA PSD, UN Comtrade, UNCTAD/World Bank maritime CSV, FRED, UNCTAD RMT, Hellenic RSS.
+
+**Tier 2 — Add after baseline works:** EEX/SGX futures, VesselFinder AIS pilot, open mine database, USGS, BIMCO, Clarksons public briefings, FAOSTAT, weather APIs.
+
+**Tier 3 — License when value is proven:** Baltic granular/fixture history, Kpler AIS, Clarksons SIN, S&P/Platts, Argus, Bloomberg/LSEG, Drewry and full broker/research reports.
+
+The system should not purchase Tier 3 data before a public-data benchmark establishes which missing fields materially improve out-of-sample forecasts.
+
+---
+
+## 11. Verified reference sources
+
+[1] [Baltic Exchange Dry Services](https://www.balticexchange.com/en/data-services/market-information0/dry-services.html)
+[2] [Baltic Exchange Indices and route definitions](https://www.balticexchange.com/en/data-services/market-information0/indices.html)
+[3] [ICE Baltic Exchange data](https://developer.ice.com/fixed-income-data-services/catalog/baltic-exchange)
+[4] [EEX Dry Freight](https://www.eex.com/en/global-commodities)
+[5] [SGX Capesize routes / historical-data links](https://www.sgx.com/derivatives/products/ffa-capesize-routes)
+[6] [World Bank Commodity Markets and historical XLSX](https://www.worldbank.org/en/research/commodity-markets)
+[7] [IMF Primary Commodity Prices](https://www.imf.org/en/research/commodity-prices)
+[8] [EIA Open Data](https://www.eia.gov/opendata/)
+[9] [USDA PSD Online](https://apps.fas.usda.gov/psdonline/)
+[10] [UNCTAD/World Bank Data360 Maritime Transport CSV](https://data360.worldbank.org/en/dataset/UNCTAD_MT)
+[11] [UNCTAD Review of Maritime Transport 2025](https://unctad.org/system/files/official-document/rmt2025_en.pdf)
+[12] [Clarksons Shipping and Trade Data](https://www.clarksons.com/research/shipping-trade/)
+[13] [Kpler AIS](https://www.kpler.com/product/maritime/kplerais)
+[14] [VesselFinder Historical AIS](https://www.vesselfinder.com/historical-ais-data)
+[15] [BIMCO Market Analysis](https://www.bimco.org/news-insights/market-analysis/)
+[16] [Hellenic Shipping News RSS feeds](https://www.hellenicshippingnews.com/rss-feeds/)
+[17] [USGS Commodity Statistics](https://www.usgs.gov/centers/national-minerals-information-center/commodity-statistics-and-information)
+[18] [Open global coal and metal mine production database](https://pmc.ncbi.nlm.nih.gov/articles/PMC9873908/)
+[19] [UN Comtrade](https://comtrade.un.org/)
+[20] [FAO Food Price Index datasets](https://www.fao.org/worldfoodsituation/foodpricesindex/en/)
+[21] [World Bank Pink Sheet monthly XLSX](https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx)
+[22] [Mendeley BDI dataset](https://data.mendeley.com/datasets/t76ckh2ygg/1)
+[23] [UNCTAD seaborne trade data](https://unctad.org/news/shipping-data-unctad-releases-new-seaborne-trade-statistics)
+[24] [Hellenic Dry Bulk RSS](https://www.hellenicshippingnews.com/category/shipping-news/dry-bulk-market/feed/)
+
+---
+
+## 12. Open issues and next decisions
+
+Before implementation, decide:
+
+- Exact initial commodity and freight target list.
+- Forecast horizons and publication cadence.
+- Whether the first release is public-data-only or includes one commercial pilot.
+- Geographic scope: global, China-centric, or selected trade corridors.
+- Desired real-time latency.
+- Budget for Baltic, AIS, Clarksons, S&P/Platts or exchange data.
+- Whether derived commercial features may be retained under each license.
+- Deployment: local research environment, cloud warehouse, or both.
+- Human approval policy for AI-generated qualitative outlooks.
+
+**Recommended immediate next step:** implement a public-data ingestion prototype for 2000–present monthly/weekly variables, then add daily freight and commodity series where legally and technically available. Preserve the source register and quality flags from day one.
+
+---
+
+## 13. Verification notes
+
+The source pages were queried and/or extracted during preparation on 2026-09-04 UTC. The historical-record audit was added after the initial source survey and records whether each catalogued source offers multi-date records, the observed historical depth/frequency, and the practical access route. Verified availability means the source page or API documentation was reachable and its access pattern was observed. It does not guarantee uninterrupted service, unchanged URLs, or that commercial access will be granted. All licensed sources require the project owner to confirm terms, redistribution rights, historical-depth pricing, and use of derived features before production ingestion.
+
+Some pages, including UN Comtrade and dynamic SGX pages, may block automated extraction while remaining available through a normal browser or official API. The specification explicitly recommends official APIs, bulk downloads, licensed distributors, or manual archival rather than bypassing access controls.
+
+---
+
+## 14. Public-data extraction run and reproducible pipeline notes
+
+### 14.1 Implemented pipeline
+
+An executable preparation pipeline was implemented at:
+
+```text
+/opt/data/dry_bulk_data_pipeline.py
+```
+
+It writes to:
+
+```text
+/opt/data/dry_bulk_data/
+  raw/
+  normalized/observations.csv
+  metadata/latest.json
+  metadata/quality_report.json
+```
+
+The pipeline performs no model fitting. It downloads public source files, stores immutable raw responses, records retrieval time, HTTP status, content type, byte count and SHA-256 hash, and writes a common long-form observation table with:
+
+```text
+observation_date, series_id, value, unit, source_id,
+publication_time, vintage_time
+```
+
+The pipeline uses bounded retries with exponential backoff for transient HTTP errors, closes each response before moving to the next source, throttles Comtrade requests, and streams large USDA records into normalized output rather than retaining the full filtered result in memory. A run is labelled `complete` only when every configured request succeeds and at least one normalized observation is produced.
+
+### 14.2 Successful extraction run
+
+The verified run completed on **2026-09-05 02:58:04 UTC**:
+
+```text
+status: complete
+requests: 28
+successful requests: 28
+failed requests: 0
+normalized rows: 1,116,833
+normalized source IDs: 8
+normalized series IDs: 24,752
+```
+
+Artifacts are stored under `/opt/data/dry_bulk_data/`. The run manifest is `metadata/latest.json`; the quality report is `metadata/quality_report.json`.
+
+Successful source families:
+
+- **FRED:** WTI crude (`DCOILWTICO`), industrial production (`INDPRO`), EUR/USD (`DEXUSEU`), and VIX (`VIXCLS`). Public CSV downloads succeeded. Retrieved coverage included WTI from 1986-01-02, industrial production from 1919-01-01, EUR/USD from 1999-01-04, and VIX from 1990-01-02 through the latest available observations in the run.
+- **USDA PSD:** full public archive download succeeded. The archive was preserved and filtered to grain/oilseed-related commodity descriptions, yielding the bulk of the normalized rows. The original ZIP and archive manifest are retained.
+- **UN Comtrade preview API:** annual China imports for HS 2601 iron ore and HS 2701 coal for 2015–2024 were retrieved successfully after adding request throttling and retries. These are annual preview observations, not a complete monthly panel.
+- **World Bank Pink Sheet:** the current official monthly workbook URL was discovered and downloaded successfully. The raw workbook is preserved; its generic cell-level extraction is only an ingestion proof and requires semantic mapping before modeling.
+- **Mendeley BDI freight dataset:** the CC BY 4.0 public workbook was downloaded and parsed. It contains daily BCI, BPI, BSI and BHSI observations from 2012-08-01 through 2019-07-31, yielding 6,996 normalized freight observations. It is a reproducible historical benchmark, not a current-rate feed or a substitute for licensed Baltic history.
+
+### 14.3 Earlier errors and resolutions
+
+The first run was interrupted during a Hermes gateway restart and also exposed source/pipeline issues. They were resolved as follows:
+
+| Issue | Resolution |
+|---|---|
+| Gateway restart interrupted the long-running command | Rerun as a bounded background process with artifacts and a final manifest; do not treat partial output as complete. |
+| FRED read timeouts / HTTP/2 instability | Use an explicit User-Agent, `Connection: close`, bounded retries, exponential backoff, and a longer per-request timeout. |
+| Comtrade HTTP 429 | Request years sequentially with retry handling and a 1.2-second delay between requests. |
+| **World Bank URL returned 404** | Replace the stale annual URL with the currently published official `CMO-Historical-Data-Monthly.xlsx` URL from the World Bank Pink Sheet document page. |
+| **No public freight-rate target in the first MVP** | Add the Mendeley Data BDI workbook (`t76ckh2ygg`, CC BY 4.0) and parse its daily BCI/BPI/BSI/BHSI sheets into the normalized freight target table. |
+| USDA extraction caused excessive memory pressure | Stream the 202 MB CSV inside the ZIP and write observations incrementally instead of collecting all rows in a Python list. |
+| Partial run appeared successful | Add explicit `status`, request counts, observation count, raw hashes, and a quality report. |
+
+### 14.4 Remaining semantic-normalization work
+
+The extraction stage is complete, but the data is not yet ready for model training. The next agent must:
+
+1. Parse the World Bank workbook into explicit commodity, period, value, unit and source columns, removing metadata/header rows.
+2. Map USDA commodity codes and attribute IDs to canonical commodities and measures such as production, imports, exports, consumption and stocks; preserve market year, calendar year and month separately.
+3. Convert Comtrade annual preview results into canonical trade observations and add monthly or full API queries where permitted.
+4. Add FRED release/publication vintages using ALFRED or another vintage-aware route before backtesting.
+5. Validate numeric values, units, date ranges, duplicates, missing periods and implausible outliers.
+6. Preserve the raw snapshot and parser version for every canonical row.
+7. Add a source-specific quality table with row counts, coverage, frequency, missingness and revision behavior.
+
+Do not train a forecasting model directly on the current generic `observations.csv`. It is an auditable landing/normalized-intermediate table, and the quality report explicitly records the semantic warnings above.
+
+### 14.5 Repeatability instructions for a future agent
+
+Run:
+
+```bash
+python3 /opt/data/dry_bulk_data_pipeline.py
+```
+
+Set an alternative output root with:
+
+```bash
+DRY_BULK_DATA_ROOT=/path/to/root python3 /opt/data/dry_bulk_data_pipeline.py
+```
+
+Before rerunning, verify network access to FRED, USDA, UN Comtrade and the World Bank document host. Never overwrite a prior raw snapshot in production: change the run directory or use immutable run-specific paths and retain `latest.json` only as a pointer. Inspect the run manifest and require `status=complete` before downstream processing.
+
+---
+
+## 15. Academic and commercial forecasting research audit
+
+### 15.1 Literature reviewed
+
+The research review covered recent systematic literature, open-access BDI studies, empirical shipping-market models, Panamax market research, technical-analysis/market-psychology work, and commercial freight-forecast products. The most useful synthesis is the 2026 systematic review by Kjeldsberg, Munim and Schramm: it reviews 28 freight-rate ML studies published from 2012–2024, identifies 17 target variables and 59 explanatory variables, and finds that 61% of studies focus on dry bulk, with weekly and daily data dominating.[25]
+
+### 15.2 Methods not yet sufficiently represented in the base design
+
+The project should test these methods in addition to ordinary ARIMA/ETS, VAR, gradient boosting and sequence models:
+
+1. **Structural/empirical shipping-market models.** Model cargo demand, effective fleet, fleet utilization, scrapping, deliveries, speed and freight rates as an interacting system rather than treating the rate as an isolated time series. The 2025 *An Empirical Model of the Dry-Bulk Shipping Market* introduces a VAR-based market model and reports forecasting gains over simpler alternatives.[26]
+2. **State-dependent and quantile causality.** Test whether commodity prices predict freight only in particular quantiles/regimes. Bandyopadhyay and Rajib use a nonparametric causality-in-quantiles approach and find asymmetric relationships between commodity spot prices and BDI.[27]
+3. **Behavioral/technical-analysis layer.** Add moving-average crossovers, momentum, oscillators, trend persistence, turning-point labels, cycle phase and orderbook response. Mileski et al. argue that freight models relying only on fundamentals miss market psychology and capacity overshoot.[28]
+4. **Time-frequency decomposition.** Evaluate EMD, wavelets, VMD/MVMD, spectral decomposition and multi-resolution models before and after regime changes. Prior BDI studies use EMD/wavelets; the 2025 MMAS paper combines MVMD, deep models and SHAP with external uncertainty factors.[29][30]
+5. **Volatility and risk forecasts.** Add GARCH, GARCH-X, GARCH-MIDAS, VAR-BEKK-GARCH-X, quantile regression, EVT and conformal/predictive-interval methods. The target should include volatility, tail loss and probability of a rate move, not only point forecasts.[31]
+6. **Forecast combinations.** Combine econometric, technical, ML, futures-implied and analyst forecasts. Research repeatedly finds hybrid/specialized combinations can outperform single models; compare combination weights out of sample rather than selecting one winner.[25][29]
+7. **Small-data AutoML with lag-availability controls.** AutoML is promising for low-frequency shipping data, but every feature must be lagged to its publication availability. A recent maritime AutoML study used 43 explanatory variables and explicitly lagged unavailable variables.[32]
+8. **Hierarchical/multi-task forecasting.** Jointly forecast BDI, BCI, BPI, BSI, route rates and commodity flows, sharing information while allowing segment-specific coefficients. This addresses the literature finding that sub-indices can be more informative for specific economic variables than the composite BDI.[30]
+9. **Event-conditioned forecasting.** Train separate or mixture-of-experts models for normal, disruption, pandemic, war, canal-closure, crop-shock and mine-disruption regimes. External events can contain predictive information at multiple time scales, especially during volatility.[29]
+10. **Market-implied versus model-implied curves.** Compare model curves with FFA/futures curves and measure forecast value as both statistical accuracy and improvement over the forward market. Commercial practitioners describe proprietary ML curves as inputs to fixing, hedging, fleet decisions and cargo exposure, not merely as a replacement forecast.[33]
+
+### 15.3 New data sources identified through research
+
+These sources or source products were not explicitly present in the original source register and should be added to the catalog.
+
+| New source | Historical records? | Intended use | Access pattern and status |
+|---|---|---|---|
+| **S&P Global Platts Dry Index (PDI)** | Yes, subject to license | Composite dry-bulk benchmark across Capesize, Panamax/Kamsarmax, Ultramax and Supramax; use as an alternative/complementary target and cross-check against Baltic composites | S&P Global Commodity Insights/Marketplace; commercial data license. S&P Global's official release confirms launch in November 2023 and describes coverage of dry-bulk commodity movements.[34] |
+| **S&P Global Freight Rate Forecast dataset** | Yes; history initiated 2012, forecast coverage from 2017 according to the product page | Weekly/monthly forecasts up to three years, structured forecasts plus unstructured insights; use as an external forecast benchmark and forecast-vintage comparator | S&P Marketplace / Connect; commercial subscription. Product page states that it uses more than 3,000 industry-related drivers and multiple IHS Markit-originated data zones, movements/AIS and vessel characteristics.[35] |
+| **Signal Ocean orderbook and vessel-movement intelligence** | Yes, licensed and product-dependent | Orderbook, ballast-vessel forecasts, vessel movements, cargo/route intelligence and derived available-tonnage features; use for 1–3 week supply forecasts and route-level tonnage | Commercial platform/API/data products; public research and industry commentary identify Signal Ocean orderbook data and ML ballast-vessel forecasting as relevant inputs.[33][36] |
+| **Yahoo Finance historical market data** | Yes, public-access library/API availability varies by instrument and terms | Study-replicable financial features: S&P 500, DXY proxy, commodity/futures proxies, volatility indices and regional equity indicators | Yahoo Finance API/library access; use cautiously, cache raw responses, respect terms, and prefer exchange/vendor data for production. The 2025 open BDI/SHAP study documents Yahoo Finance as its financial-data source.[30] |
+| **Public research datasets attached to BDI studies** | Yes, study-specific and often partial | Reproducible model baselines, feature comparison and benchmark replication; examples include weekly BDI/financial panels and open BDI sub-index samples | Open-access papers, PMC supplementary material, Mendeley/Zenodo, or author request. Store provenance and do not assume commercial redistribution rights.[8][30] |
+| **Dry Bulk Economic Climate Index (DBECI)** | Historical index can be reconstructed where component histories are available | Composite macro/freight climate feature combining exchange rates, Brent, US rates and other economic indicators; test as an exogenous VARX/ML feature | Derived source, not a direct feed. Reconstruct from documented components and preserve formula/version; referenced in the BDI forecasting literature.[30][37] |
+| **Satellite stockpile, crop and port imagery features** | Potentially historical, source-dependent | Mine/port stockpile volume, crop maturity/yield, port congestion and disruption detection; use as nowcast/event features | Commercial satellite providers, public Sentinel/Landsat archives, remote-sensing pipelines, or specialist vendors. Research-industry commentary identifies stockpile reconstruction and crop satellite signals as emerging “new data.”[33] |
+| **Intraday FFA clearing/quote history** | Yes, licensed/vendor dependent | Intraday forward curve, liquidity, volatility, basis and market-expectation signals | Exchange/broker/vendor feed; add to the licensed market-data tier. Industry commentary specifically identifies intraday FFA prices as a new primary data stream.[33] |
+
+### 15.4 Research-informed feature additions
+
+Add these feature groups to the feature store:
+
+- **DBECI-style macro composite:** EUR/USD, CNY/USD, Brent, US short rate, US term spread, commodity prices and market indices.
+- **Technical state:** moving averages, rate-of-change, RSI-like oscillators, breakouts, drawdowns, trend persistence and turning-point labels.
+- **Multi-resolution components:** low-frequency trend, seasonal component, high-frequency residual, wavelet/VMD/EMD components and reconstruction error.
+- **Effective fleet:** nominal DWT adjusted for slow steaming, port congestion, scrubber/retrofit downtime, ballast inefficiency and route diversion.
+- **Expectation gap:** model forecast minus FFA curve, analyst forecast, prior forecast vintage and realized rate.
+- **Forward liquidity:** bid/ask, volume, open interest, curve slope, basis volatility and price-impact features where available.
+- **Event shock variables:** binary and continuous indicators for canal/route disruptions, mine outages, crop events, policy shocks, sanctions and extreme weather.
+- **Narrative consensus:** corroboration count, source-quality-weighted polarity, disagreement, novelty, expected horizon and revision rate.
+
+### 15.5 Research design changes required
+
+- Benchmark every new method against seasonal-naive, ARIMA/ETS, VARX, FFA-implied and analyst-consensus baselines.
+- Use rolling-origin evaluation and publication-time feature lags; do not use revised trade data or later news in earlier predictions.
+- Test daily, weekly and monthly frequencies separately; do not assume a model that wins at weekly frequency wins intraday or monthly.
+- Report point accuracy, interval calibration, directional accuracy, turning-point detection, tail-risk performance and economic value after transaction/hedging costs.
+- Test regime-specific performance: ordinary market, crisis, pandemic, war, canal disruption, commodity shock and supply-glut periods.
+- Preserve negative results. The literature is vulnerable to data-snooping because many studies compare many models on one historical sample.
+- Use SHAP/feature attribution only as descriptive interpretation; do not treat feature importance as causal evidence.
+
+### 15.6 Research references added
+
+[25] [Kjeldsberg, Munim & Schramm — Machine Learning in Freight Rate Forecasting: A Systematic Literature Review](https://doi.org/10.1057/s41278-025-00334-3)
+[26] [An Empirical Model of the Dry-Bulk Shipping Market](https://doi.org/10.1080/00036846.2025.2504207)
+[27] [The asymmetric relationship between Baltic Dry Index and commodity spot prices](https://pmc.ncbi.nlm.nih.gov/articles/PMC8566970/)
+[28] [Technical analysis: the psychology of the market of dry bulk freight rates](https://link.springer.com/article/10.1186/s41072-020-00079-7)
+[29] [An interpretable multi-model ensemble deep learning framework for forecasting ocean freight indices with external uncertainty factors](https://doi.org/10.1057/s41278-025-00321-8)
+[30] [Baltic dry index forecast using financial market data: ML methods and SHAP explanations](https://pmc.ncbi.nlm.nih.gov/articles/PMC12279113/)
+[31] [A hybrid combination approach to forecast freight-rate volatility](https://openaccess.city.ac.uk/id/eprint/36099/1/A%20hybrid%20combination%20approach%20to%20forecast%20freight%20rates%20volatility.pdf)
+[32] [Automated machine learning driven model for predicting platform supply-vessel freight market](https://doi.org/10.1016/j.cie.2024.110153)
+[33] [Breakwave Advisors — Incorporating data-driven decision making in dry bulk shipping](https://www.breakwaveadvisors.com/insights/2021/6/23/incorporating-data-driven-decision-making-in-dry-bulk-shipping)
+[34] [S&P Global Commodity Insights — Platts launches Dry Bulk Freight Index](https://press.spglobal.com/2023-11-14-Platts-of-S-P-Global-Commodity-Insights-launches-Dry-Bulk-Freight-Index)
+[38] [S&P Global Commodity Insights — Platts Market Data: Dry Freight](https://www.spglobal.com/energy/en/products-solutions/shipping/platts-market-data-dry-freight)
+[35] [S&P Global Freight Rate Forecast dataset](https://www.marketplace.spglobal.com/en/datasets/freight-rate-forecast-(285))
+[36] [Breakwave/Signal Ocean dry-bulk fleet-growth context](https://www.breakwaveadvisors.com/insights/2025/5/23/dry-bulk-fleet-growth-2025-2026)
+[37] [A novel approach to forecasting the bulk freight market / DBECI reference](https://doi.org/10.1016/j.ajsl.2017.03.005)
+
+---
+
+## 16. Public qualitative-news and claims-extraction prototype
+
+### 16.1 Completed research run
+
+A bounded public-source research run was completed for BDI-related news, analysis, predictions and public data sources.
+
+```text
+run_id: bdi_claims_prototype_20260905
+scope: 2026-08-01 through 2026-09-05 UTC
+information_cutoff: 2026-09-05T00:00:00Z
+post_cutoff_outcome_check: 2026-09-07
+raw source records: 471
+unique canonical source URLs: 45
+raw claim records: 200
+complete claims before deduplication: 63
+incomplete/title-only records: 137
+explicit contradiction groups: 6
+```
+
+Artifacts are retained in:
+
+```text
+/opt/data/bdi_claims_prototype/
+```
+
+The production-facing subset is `claims_clean.jsonl`; `claims_incomplete.jsonl` and `claims_duplicates.jsonl` preserve audit records. `research_summary.md` contains the run findings and learned schema. The prototype is not a backtest and does not establish forecast accuracy.
+
+### 16.2 Source classes used
+
+The run searched and extracted from:
+
+- Public market-data pages: Trading Economics, OilPriceAPI and public BDI article pages.
+- Official benchmark/methodology: Baltic Exchange dry services.
+- Public historical target data: Mendeley BCI/BPI/BSI/BHSI dataset.
+- Dry-bulk trade press: Hellenic Shipping News, Seatrade Maritime News, Splash247, MarineLink and TradeWinds discovery results.
+- Public research and industry analysis: Breakwave Advisors, Veson Nautical, MSI-linked public commentary, Drewry-linked public commentary and BIMCO-linked public commentary.
+- Official/data discovery sources: UNCTAD, NOAA, World Bank, Reuters discovery pages and public API documentation.
+
+A source found only through a search snippet or an inaccessible subscription page must be labelled `retrieval_status=search_snippet` or `public_summary`; it must not be treated as fully verified page evidence.
+
+### 16.3 Research and processing method
+
+The repeatable workflow is:
+
+1. Define target, vessel class, commodity, route, geography, horizon and information cutoff.
+2. Search separate source classes for observations, explanations, forecasts, risks, supply/demand, events and target-data sources.
+3. Retrieve the page/report where legally accessible and record canonical URL, publisher, publication time, retrieval time, access status and source type.
+4. Snapshot raw source content before LLM processing and retain content hash, parser version and raw object URI.
+5. Extract atomic claims rather than article summaries.
+6. Resolve aliases into canonical entities such as `BDI`, `BCI`, `BPI`, `BSI`, `iron_ore`, `coal`, `Capesize`, `Panamax`, `Simandou`, China and route concepts, while retaining the source wording.
+7. Classify claim type, polarity, magnitude, forecast horizon, confidence and provenance.
+8. Trace upstream attribution and assign `independence_group` so syndicated reporting is not counted as independent corroboration.
+9. Deduplicate sources and claims using canonical URLs, title/date, shared numerical values, shared attribution, text similarity and event identity; retain lineage even when grouped.
+10. Detect contradictions only after aligning target, segment, geography, commodity, horizon, publication vintage, units and claim type.
+11. Preserve unresolved disagreement, internal signal tension and complementary segment views instead of averaging them into a consensus.
+12. Separate current/recent evidence from historical forecast vintages and post-cutoff outcomes.
+13. Link later realized observations to earlier forecasts through `forecast_outcomes` without allowing look-ahead leakage.
+
+### 16.4 Learned findings from the run
+
+The public evidence was not a single aggregate bullish or bearish view.
+
+- At the September 5 information cutoff, public market pages reported strongly positive BDI momentum and a BDI level of 3,628 on September 4.
+- Breakwave separated positive momentum from neutral fundamentals while maintaining an optimistic near-term Capesize view.
+- Public MSI commentary described Capesize as stronger than sub-Capesize segments, with iron ore/bauxite support and Panamax supply pressure.
+- Earlier forecasts were constructive on iron ore, Simandou, bauxite and longer-haul tonne-miles but more cautious on aggregate balance because of coal weakness, fleet growth, utilization and China uncertainty.
+- Risks included Hormuz/geopolitical disruption, El Niño, grain yields, Chinese demand and trade policy.
+- Repeated daily market reports often reflected one underlying market event; article count must not be treated as evidence count.
+
+The central unresolved research question was:
+
+> Can Capesize strength and longer-haul iron-ore/tonne-mile support outweigh coal weakness and fleet growth at the aggregate BDI level?
+
+### 16.5 Contradiction groups observed
+
+The prototype identified:
+
+- Forecast horizon/magnitude differences within a single forecast page.
+- Cutoff-versus-outcome reversal: BDI 3,628 near the cutoff versus 3,575 on September 7.
+- Momentum versus fundamentals as separate signal layers.
+- Capesize strength versus Panamax/sub-Capesize weakness as segment scope, not necessarily aggregate contradiction.
+- Unresolved disagreement across MSI, BIMCO, Drewry and Veson on aggregate balance.
+- Internal Breakwave tension between positive momentum, neutral fundamentals and optimistic near-term Capesize expectations.
+
+### 16.6 Freshness and current-view policy
+
+The earlier prototype mixed current evidence with old forecast vintages. The production pipeline must enforce the following:
+
+```text
+current: 0-7 days
+recent: 8-30 days
+aging: 31-90 days
+historical_vintage: >90 days or forecast period completed
+post_cutoff_outcome: publication after information cutoff
+```
+
+The current evidence canvas should default to `current` and `recent`. Older material should appear in a forecast-vintage/calibration panel. Post-cutoff material may be used for outcome evaluation only.
+
+### 16.7 Public-data and qualitative-layer integration
+
+The quantitative extraction and qualitative claims corpus are complementary:
+
+```text
+Quantitative extraction:
+  FRED WTI, industrial production, EUR/USD and VIX
+  USDA PSD commodity fundamentals
+  UN Comtrade China iron ore and coal imports
+  World Bank Pink Sheet commodity workbook
+  Mendeley daily BCI/BPI/BSI/BHSI history
+
+Qualitative extraction:
+  current BDI observations
+  BDI forecasts and market explanations
+  Capesize/Panamax segment views
+  supply/demand and fleet narratives
+  geopolitical, weather, grain and policy risks
+  source disagreement and contradiction groups
+```
+
+Claims must be linked to numerical observations where possible. For example, a claim about China iron-ore demand should link to the relevant Comtrade series, while a claim about BDI momentum should link to a versioned freight-rate series. Textual claims remain distinct from the numerical feature but can generate event, sentiment, expectation-gap and regime features.
+
+### 16.8 Implementation requirements for the AI layer
+
+The LLM/agent should operate through domain tools rather than unrestricted answer generation:
+
+- `search_curated_sources(target, horizon, cutoff)`
+- `retrieve_source(source_id)`
+- `extract_claims(source_id, parser_version)`
+- `resolve_entities(claim_ids)`
+- `find_duplicates(claim_ids)`
+- `find_contradictions(target, horizon, cutoff)`
+- `get_market_snapshot(target, as_of)`
+- `link_claims_to_series(claim_ids, series_ids)`
+- `run_scenario(assumptions, target, horizon)`
+- `evaluate_forecast_vintage(forecast_id)`
+- `save_user_feedback(claim_or_group_id, adjustment, reason)`
+
+Every generated answer should expose claim IDs, source URLs, freshness, provenance, independent evidence count, contradiction groups and whether a statement is source fact or agent synthesis.
+
+### 16.9 Required next implementation step
+
+Replace the manually seeded prototype claims with a repeatable extractor that:
+
+1. Uses the source registry and curated query set.
+2. Stores immutable raw pages/PDFs and exact evidence excerpts.
+3. Enforces the information cutoff during retrieval and processing.
+4. Produces complete claim records or explicitly marks extraction failure.
+5. Deduplicates at source and claim level while retaining lineage.
+6. Computes independent evidence groups.
+7. Writes contradiction groups with linked claim IDs and rationale.
+8. Links claims to quantitative series and later realized outcomes.
+9. Records parser/LLM version, retrieval status and confidence.
+10. Runs schema, citation, freshness, provenance and look-ahead validation before claims reach the current evidence canvas.
+
+---
+
+## 17. Specification revision history
+
+- **0.1 — 2026-09-04:** Initial public/commercial source, historical-availability, extraction and forecasting specification.
+- **0.2 — 2026-09-07:** Added qualitative claims extraction, evidence graph, entity resolution, source independence, deduplication, contradiction detection, freshness controls, prototype run results, AI tool scaffolding and quantitative/qualitative integration requirements.
+
+### 17.1 Verification note
+
+This revision was updated after the bounded BDI claims-extraction run. The quantitative public-data extraction remains documented in Sections 14 and 15; the qualitative claims prototype and its limitations are documented in Section 16. Dates, source URLs, counts and artifact paths refer to the recorded run manifests and files, not to an unversioned live web state.
+
+### 17.2 Final verification
+
+The specification has been exported only after checking that the qualitative prototype artifacts exist, the quantitative extraction manifest exists, and this file contains the new claims/evidence, freshness, contradiction, and AI-agent sections.
+
+---

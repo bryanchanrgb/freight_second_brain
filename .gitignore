@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Pipeline artifacts (immutable snapshots and warehouse)
+data/
+*.parquet
+*.xlsx
+*.xls
+*.duckdb
+
+# Editor
+.idea/
+.vscode/
