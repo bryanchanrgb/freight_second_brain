@@ -24,3 +24,6 @@ data/
 # Editor
 .idea/
 .vscode/
+
+# Frontend
+web/node_modules/

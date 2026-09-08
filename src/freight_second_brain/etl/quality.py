@@ -41,8 +41,6 @@ def build_quality_report(
             "extractor": item.source_id,
             "status": item.status,
             "observations": len(item.observations),
-            "claims": len(item.claims),
-            "events": len(item.events),
             "requests": item.requests,
             "successful_requests": item.successful_requests,
             "failed_requests": item.failed_requests,

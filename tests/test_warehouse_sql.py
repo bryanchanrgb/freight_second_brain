@@ -24,7 +24,8 @@ def test_schema_creates_empty_tables(settings) -> None:
     warehouse = Warehouse(settings)
     tables = {row["table"]: row for row in warehouse.schema()}
     assert tables["observations"]["row_count"] == 0
-    assert tables["claims"]["row_count"] == 0
+    assert tables["series"]["row_count"] == 0
+    assert "claims" not in tables
     names = {col["name"] for col in tables["observations"]["columns"]}
     assert "series_id" in names
     assert "value" in names

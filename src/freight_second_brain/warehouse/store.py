@@ -11,11 +11,6 @@ import pandas as pd
 from freight_second_brain.config import Settings, get_settings
 from freight_second_brain.warehouse.schemas import (
     CatalogSource,
-    Claim,
-    ClaimEntity,
-    ClaimSeriesLink,
-    Contradiction,
-    Event,
     Observation,
     RetrievedSource,
     RunManifest,
@@ -24,12 +19,6 @@ from freight_second_brain.warehouse.schemas import (
 
 JSONL_TABLES = {
     "sources": "sources.jsonl",
-    "claims": "claims.jsonl",
-    "events": "events.jsonl",
-    "claim_links": "claim_links.jsonl",
-    "claim_entities": "claim_entities.jsonl",
-    "contradictions": "contradictions.jsonl",
-    "claim_series": "claim_series.jsonl",
     "catalog": "catalog.jsonl",
     "feedback": "user_feedback.jsonl",
 }
@@ -38,12 +27,7 @@ _READ_ONLY_PREFIXES = ("select", "with", "describe", "desc", "show", "explain", 
 _ROW_WRAP_PREFIXES = ("select", "with", "from", "summarize")
 _SERIES_COLUMNS = ["source_id", "series_id", "unit", "frequency", "n", "start", "end", "last_value"]
 _SQL_TABLES = {
-    "claims": Claim,
-    "events": Event,
     "sources": RetrievedSource,
-    "claim_entities": ClaimEntity,
-    "contradictions": Contradiction,
-    "claim_series": ClaimSeriesLink,
     "catalog": CatalogSource,
 }
 
@@ -198,12 +182,6 @@ class Warehouse:
 
     def write_sources(self, rows: Iterable[RetrievedSource]) -> int:
         return self.replace_jsonl("sources", rows)
-
-    def write_claims(self, rows: Iterable[Claim]) -> int:
-        return self.replace_jsonl("claims", rows)
-
-    def write_events(self, rows: Iterable[Event]) -> int:
-        return self.replace_jsonl("events", rows)
 
     def write_feedback(self, row: UserFeedback) -> int:
         return self.append_jsonl("feedback", [row])

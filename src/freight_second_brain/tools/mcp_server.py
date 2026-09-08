@@ -59,9 +59,10 @@ def make_server(registry: ToolRegistry | None = None) -> Server[Any]:
         "freight-second-brain",
         version="0.1.0",
         instructions=(
-            "Runtime warehouse tools for Freight Second Brain. "
-            "These are the same ToolRegistry tools the product agent uses. "
-            "Use them to query and display warehouse data while developing."
+            "ToolRegistry for Freight Second Brain: warehouse query tools "
+            "(schema, sql, show_source) and live web research tools "
+            "(web_search via Exa, rss_feed, fetch_url via Jina). "
+            "Same tools the product agent uses."
         ),
         on_list_tools=on_list_tools,
         on_call_tool=on_call_tool,

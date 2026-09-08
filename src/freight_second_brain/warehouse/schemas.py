@@ -125,85 +125,6 @@ class RetrievedSource(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
-class Claim(BaseModel):
-    claim_id: str
-    source_id: str
-    claim_text: str
-    claim_type: ClaimType = ClaimType.OBSERVATION
-    subject_entity: str | None = None
-    subject_type: str | None = None
-    geography: str | None = None
-    vessel_class: str | None = None
-    commodity: str | None = None
-    route: str | None = None
-    polarity: Polarity = Polarity.UNKNOWN
-    magnitude: str | None = None
-    confidence: str = "unknown"
-    provenance: str = "secondary"
-    independence_group: str | None = None
-    source_freshness: FreshnessClass = FreshnessClass.RECENT
-    retrieval_status: str = "public_summary"
-    supporting_evidence: str | None = None
-    raw_object_uri: str | None = None
-    source_url: str | None = None
-    publication_time: datetime | None = None
-    retrieved_time: datetime | None = None
-    entities: list[str] = Field(default_factory=list)
-    is_duplicate: bool = False
-    duplicate_of: str | None = None
-
-
-class Event(BaseModel):
-    event_id: str
-    published_at: datetime | None = None
-    observed_at: datetime | None = None
-    source: str
-    source_url: str
-    headline: str
-    commodity: str | None = None
-    vessel_class: str | None = None
-    region: str | None = None
-    route: str | None = None
-    factor_type: str = "unknown"
-    polarity: Polarity = Polarity.UNKNOWN
-    magnitude: str = "unknown"
-    expected_horizon: str | None = None
-    extracted_evidence: str | None = None
-    raw_object_uri: str | None = None
-
-
-class ClaimLink(BaseModel):
-    from_claim_id: str
-    to_claim_id: str
-    relation_type: str
-    rationale: str = ""
-    created_by: str = "system"
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-class ClaimEntity(BaseModel):
-    claim_id: str
-    entity_id: str
-    entity_type: str
-
-
-class Contradiction(BaseModel):
-    contradiction_id: str
-    contradiction_type: str
-    subject_entity: str
-    claim_id: str
-    polarity: str
-    status: str = "unresolved"
-    summary: str = ""
-
-
-class ClaimSeriesLink(BaseModel):
-    claim_id: str
-    series_id: str
-    relation_type: str = "affects"
-    rationale: str = ""
-
-
 class UserFeedback(BaseModel):
     feedback_id: str
     claim_id_or_group_id: str
@@ -225,8 +146,6 @@ class RunManifest(BaseModel):
     successful_requests: int = 0
     failed_requests: int = 0
     observation_count: int = 0
-    claim_count: int = 0
-    event_count: int = 0
     source_ids: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     quality_report_uri: str | None = None

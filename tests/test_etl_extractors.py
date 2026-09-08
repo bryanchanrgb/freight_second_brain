@@ -139,7 +139,7 @@ def test_trading_economics_partial_without_value(monkeypatch, ctx) -> None:
     assert result.observations == []
 
 
-def test_hellenic_rss_lands_unlabeled_events(monkeypatch, ctx) -> None:
+def test_hellenic_rss_stores_snapshot_without_events(monkeypatch, ctx) -> None:
     rss = """<?xml version="1.0"?>
     <rss version="2.0"><channel>
       <item>
@@ -154,19 +154,18 @@ def test_hellenic_rss_lands_unlabeled_events(monkeypatch, ctx) -> None:
     _patch_fetch(monkeypatch, hellenic_mod, http_result(rss))
     result = HellenicRssExtractor().extract(ctx)
     assert result.status == "complete"
-    assert result.claims == []
-    assert result.events[0].headline.startswith("Capesize")
-    assert result.events[0].polarity.value == "unknown"
-    assert result.events[0].commodity is None
-    assert result.events[0].vessel_class is None
+    assert result.observations == []
     assert result.retrieved_sources
+    assert result.snapshot_uris
+    assert "live rss_feed" in result.notes[-1]
 
 
-def test_hellenic_rss_partial_without_entries(monkeypatch, ctx) -> None:
+def test_hellenic_rss_complete_on_empty_feed(monkeypatch, ctx) -> None:
     rss = """<?xml version="1.0"?><rss version="2.0"><channel><title>empty</title></channel></rss>"""
     _patch_fetch(monkeypatch, hellenic_mod, http_result(rss))
     result = HellenicRssExtractor().extract(ctx)
-    assert result.status == "partial"
+    assert result.status == "complete"
+    assert result.retrieved_sources
 
 
 def test_world_bank_api_maps_indicator_rows(monkeypatch, ctx) -> None:
@@ -375,7 +374,6 @@ def test_qualitative_pages_stores_snapshots(monkeypatch, ctx) -> None:
     _patch_fetch(monkeypatch, pages_mod, http_result(html))
     result = QualitativePagesExtractor().extract(ctx)
     assert result.status == "complete"
-    assert result.claims == []
     assert result.retrieved_sources[0].source_id == "baltic_exchange"
 
 

@@ -10,8 +10,6 @@ from freight_second_brain.etl.extractors.base import RunContext
 from freight_second_brain.etl.http import HttpResult
 from freight_second_brain.etl.landing import LandingZone
 from freight_second_brain.warehouse.schemas import (
-    Claim,
-    Event,
     Observation,
     RetrievedSource,
 )
@@ -73,27 +71,6 @@ def make_observation(**kwargs) -> Observation:
     payload.update(kwargs)
     payload.setdefault("extra", {"note": "test"})
     return Observation(**payload)
-
-
-def make_claim(**kwargs) -> Claim:
-    payload = {
-        "claim_id": "claim-1",
-        "source_id": "test_source",
-        "claim_text": "Capesize rates jumped",
-    }
-    payload.update(kwargs)
-    return Claim(**payload)
-
-
-def make_event(**kwargs) -> Event:
-    payload = {
-        "event_id": "event-1",
-        "source": "test_source",
-        "source_url": "https://example.test/news",
-        "headline": "Iron ore demand supports Capesize",
-    }
-    payload.update(kwargs)
-    return Event(**payload)
 
 
 def make_retrieved_source(**kwargs) -> RetrievedSource:

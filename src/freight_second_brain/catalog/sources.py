@@ -243,7 +243,7 @@ SOURCE_CATALOG: list[CatalogSource] = [
         publisher="Hellenic Shipping News",
         source_type="news",
         status=AccessStatus.VERIFIED_PUBLIC,
-        data_and_purpose="Dated dry-bulk market news and commentary.",
+        data_and_purpose="Dated dry-bulk market news. Warehouse stores a feed snapshot; live headlines use rss_feed.",
         access_pattern="RSS 2.0.",
         default_url="https://www.hellenicshippingnews.com/category/shipping-news/dry-bulk-market/feed/",
         license="Publisher terms; store metadata and permitted excerpts",
@@ -295,7 +295,7 @@ SOURCE_CATALOG: list[CatalogSource] = [
         history_access_method="api",
         extractor="gdelt",
         enabled_by_default=False,
-        notes="Discovery layer only; validate claims against primary sources.",
+        notes="Discovery layer only; confirm headlines on primary sources.",
     ),
 ]
 

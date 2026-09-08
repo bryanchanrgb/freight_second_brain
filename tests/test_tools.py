@@ -1,12 +1,15 @@
-from freight_second_brain.tools.registry import ToolRegistry
+from freight_second_brain.tools.registry import AGENT_TOOL_NAMES, WEB_TOOL_NAMES, ToolRegistry
 from freight_second_brain.warehouse.store import Warehouse
-from tests.conftest import make_claim, make_observation, make_retrieved_source
+from tests.conftest import make_observation, make_retrieved_source
 
 
 def test_runtime_tools_are_query_and_display_only(settings) -> None:
     registry = ToolRegistry(Warehouse(settings))
     names = {spec["name"] for spec in registry.list_tools()}
-    assert names == {"schema", "sql", "show_source"}
+    assert names == set(AGENT_TOOL_NAMES)
+    assert {spec["name"] for spec in registry.list_tools() if spec["category"] == "web"} == set(
+        WEB_TOOL_NAMES
+    )
     for removed in (
         "search_curated_sources",
         "retrieve_source",
@@ -37,7 +40,8 @@ def test_schema_and_sql_tools(settings) -> None:
     schema = registry.call("schema")
     assert schema.ok
     tables = {row["table"] for row in schema.data}
-    assert {"observations", "series", "claims", "catalog"} <= tables
+    assert {"observations", "series", "catalog"} <= tables
+    assert "claims" not in tables
 
     latest = registry.call(
         "sql",

@@ -41,17 +41,10 @@ def run_pipeline(
             results.append(ExtractResult(source_id=name, status="failed", notes=[str(exc)]))
 
     observations = [row for result in results for row in result.observations]
-    claims = [row for result in results for row in result.claims]
-    events = [row for result in results for row in result.events]
     sources = [row for result in results for row in result.retrieved_sources]
 
     warehouse.write_observations(observations, replace=True)
-    warehouse.write_claims(claims)
-    warehouse.write_events(events)
     warehouse.write_sources(sources)
-    warehouse.replace_jsonl("claim_entities", [])
-    warehouse.replace_jsonl("contradictions", [])
-    warehouse.replace_jsonl("claim_series", [])
     finalize_warehouse(warehouse)
 
     report = build_quality_report(observations, results)
@@ -76,14 +69,10 @@ def run_pipeline(
         successful_requests=sum(item.successful_requests for item in results),
         failed_requests=sum(item.failed_requests for item in results),
         observation_count=len(observations),
-        claim_count=len(claims),
-        event_count=len(events),
         source_ids=sorted({item.source_id for item in results}),
         notes=(
             [note for item in results for note in ([f"{item.source_id}: {item.status}"] + item.notes)]
-            + [
-                "code ingest only; run freight-etl agent skills for claims, entities, duplicates, contradictions, series links"
-            ]
+            + ["code ingest only; news and analysis come from live web tools, not stored claims"]
         ),
         quality_report_uri=str(warehouse.settings.metadata_root / "quality_report.json"),
     )

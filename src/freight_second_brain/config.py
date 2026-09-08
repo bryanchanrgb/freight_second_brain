@@ -26,6 +26,8 @@ def resolve_data_root(data_root: Path | None = None) -> Path:
     Absolute paths (including an absolute env override) are left as-is.
     """
     raw = (data_root if data_root is not None else Settings().data_root).expanduser()
+    if not str(raw).strip() or str(raw) == ".":
+        raw = Path("data")
     if raw.is_absolute():
         return raw.resolve()
     return (repo_root() / raw).resolve()
@@ -60,6 +62,15 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "anthropic_api_key"),
     )
     llm_model: str = Field(default="gpt-4.1-mini", validation_alias=AliasChoices("LLM_MODEL", "llm_model"))
+    openrouter_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("OPENROUTER_API_KEY", "openrouter_api_key"),
+    )
+    openrouter_model: str = Field(
+        default="openai/gpt-4o-mini",
+        validation_alias=AliasChoices("OPENROUTER_MODEL", "openrouter_model"),
+    )
+    exa_api_key: str = Field(default="", validation_alias=AliasChoices("EXA_API_KEY", "exa_api_key"))
     http_timeout_s: float = 60.0
     http_retries: int = 4
     comtrade_delay_s: float = 1.2

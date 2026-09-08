@@ -9,7 +9,7 @@ from typing import Any, Protocol
 
 from freight_second_brain.config import PARSER_VERSION, Settings
 from freight_second_brain.etl.landing import LandingZone
-from freight_second_brain.warehouse.schemas import Claim, Event, Observation, RetrievedSource
+from freight_second_brain.warehouse.schemas import Observation, RetrievedSource
 
 
 def utcnow() -> datetime:
@@ -120,8 +120,6 @@ class ExtractResult:
     status: str
     observations: list[Observation] = field(default_factory=list)
     retrieved_sources: list[RetrievedSource] = field(default_factory=list)
-    events: list[Event] = field(default_factory=list)
-    claims: list[Claim] = field(default_factory=list)
     snapshot_uris: list[str] = field(default_factory=list)
     requests: int = 0
     successful_requests: int = 0

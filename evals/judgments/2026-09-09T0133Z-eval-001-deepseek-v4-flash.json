@@ -1,0 +1,67 @@
+{
+  "schema_version": "0.1.0",
+  "dataset_id": "freight-sb-multi-turn-eval-v0",
+  "gold_as_of": "2026-09-09",
+  "judge_as_of": "2026-09-09",
+  "run_id": "2026-09-09T0133Z-eval-001-deepseek-v4-flash",
+  "candidate_id": "deepseek/deepseek-v4-flash-0731",
+  "trace": "evals/runs/eval-001-deepseek-v4-flash.json",
+  "agent_surface": "freight-sb agent (web_search, rss_feed, fetch_url; no warehouse SQL)",
+  "cases": [
+    {
+      "id": "eval-001",
+      "result": "pass",
+      "mean": 1.36,
+      "hard_fails": [],
+      "must_miss": [],
+      "must_not_hit": [],
+      "turns": [
+        {
+          "turn": 1,
+          "status": "scored",
+          "axes": {
+            "freshness": 2,
+            "segment": "na",
+            "provenance": 1,
+            "contradiction": 1,
+            "scope": "na",
+            "continuity": "na",
+            "honesty": 2
+          },
+          "mean": 1.5,
+          "notes": "3584 (8 Sep) vs 3575 (7 Sep) vs 3628 (4 Sep) clocks are clean. No URLs. Baltic 5TC >$58k mislabeled as C5TC alongside Xclusiv C5TC $54,791."
+        },
+        {
+          "turn": 2,
+          "status": "scored",
+          "axes": {
+            "freshness": 1,
+            "segment": 1,
+            "provenance": 1,
+            "contradiction": 1,
+            "scope": "na",
+            "continuity": 1,
+            "honesty": 2
+          },
+          "mean": 1.17,
+          "notes": "Missed Tue session BCI 6313 / BPI 2414 / BSI 1693; leaned on Week 36 Friday table. Netted C5TC $54,791 vs >$58k as intraweek vs Friday close (they are different TCE objects). Honest about the daily-split gap."
+        },
+        {
+          "turn": 3,
+          "status": "scored",
+          "axes": {
+            "freshness": 1,
+            "segment": "na",
+            "provenance": 1,
+            "contradiction": 2,
+            "scope": "na",
+            "continuity": 2,
+            "honesty": 1
+          },
+          "mean": 1.4,
+          "notes": "Did not treat 3575 as live; used 3584. Did not query sql/show_source (web-only agent) so freshness/honesty capped at 1. Did not name TE.BDI.LAST or keep 3628 as a week-close feature column."
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Runtime warehouse tools
 
-`schema`, `sql`, `show_source`, and any later `ToolRegistry` tools are the product agent's tool surface. Use that same surface in this harness.
+`schema`, `sql`, `show_source`, `web_search`, `rss_feed`, `fetch_url`, and any later `ToolRegistry` tools are the product agent's tool surface. Use that same surface in this harness.
 
 1. Prefer MCP tools from the `freight-second-brain` server.
 2. If those MCP tools are not connected, run `uv run freight-sb tools <name> --json '...'`.

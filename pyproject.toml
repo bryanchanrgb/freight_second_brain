@@ -20,6 +20,10 @@ dependencies = [
     "lxml>=5.3",
     "duckdb>=1.2",
     "mcp>=2.2.0",
+    "langchain>=1.4.0",
+    "langchain-openrouter>=0.2.8",
+    "fastapi>=0.141.1",
+    "uvicorn>=0.52.4",
 ]
 
 [project.optional-dependencies]

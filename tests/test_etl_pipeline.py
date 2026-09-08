@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import date
 
 from freight_second_brain.etl.extractors.base import ExtractResult
 from freight_second_brain.etl.pipeline import run_pipeline
 from freight_second_brain.warehouse.store import Warehouse
-from tests.conftest import make_claim, make_event, make_observation, make_retrieved_source
+from tests.conftest import make_observation, make_retrieved_source
 
 
 class _OkExtractor:
@@ -17,8 +16,6 @@ class _OkExtractor:
             source_id="ok_source",
             status="complete",
             observations=[make_observation(vintage_id=ctx.run_id)],
-            claims=[make_claim()],
-            events=[make_event()],
             retrieved_sources=[make_retrieved_source()],
             requests=2,
             successful_requests=2,
@@ -66,8 +63,6 @@ def test_pipeline_complete_writes_warehouse(monkeypatch, settings) -> None:
     manifest = run_pipeline(settings=settings)
     assert manifest.status == "complete"
     assert manifest.observation_count == 1
-    assert manifest.claim_count == 1
-    assert manifest.event_count == 1
     assert manifest.requests == 2
     assert manifest.successful_requests == 2
     assert manifest.failed_requests == 0
@@ -77,14 +72,12 @@ def test_pipeline_complete_writes_warehouse(monkeypatch, settings) -> None:
     obs = warehouse.load_observations()
     assert len(obs) == 1
     assert obs.iloc[0]["series_id"] == "TEST.SERIES"
-    claim = warehouse.load_jsonl("claims")[0]
-    assert claim["claim_id"] == "claim-1"
-    assert claim["entities"] == []
-    assert warehouse.load_jsonl("claim_entities") == []
     assert warehouse.load_jsonl("catalog")
     assert warehouse.duckdb_path.exists()
-    assert warehouse.load_jsonl("events")[0]["event_id"] == "event-1"
     assert warehouse.load_jsonl("sources")[0]["source_id"] == "test_source"
+    tables = {row["table"] for row in warehouse.schema()}
+    assert "claims" not in tables
+    assert "events" not in tables
     latest = json.loads((settings.metadata_root / "latest.json").read_text())
     assert latest["status"] == "complete"
     quality = json.loads((settings.metadata_root / "quality_report.json").read_text())

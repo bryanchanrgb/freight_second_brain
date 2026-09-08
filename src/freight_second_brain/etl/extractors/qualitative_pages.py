@@ -56,5 +56,5 @@ class QualitativePagesExtractor:
             result.status = "failed"
         elif result.failed_requests:
             result.status = "partial"
-        result.notes.append("snapshots stored; extract-claims skill reads HTML/PDF")
+        result.notes.append("snapshots stored for show_source; live web tools cover current news")
         return result

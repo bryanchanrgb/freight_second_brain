@@ -1,0 +1,1655 @@
+{
+  "schema_version": "0.1.0",
+  "dataset_id": "freight-sb-multi-turn-eval-v0",
+  "as_of": "2026-09-09",
+  "cases": [
+    {
+      "id": "eval-001",
+      "title": "Live BDI print versus lagged warehouse last value",
+      "tags": [
+        "session",
+        "bdi",
+        "warehouse-lag",
+        "segment-split"
+      ],
+      "horizon": "session",
+      "segment": [
+        "bdi",
+        "capesize",
+        "panamax",
+        "supramax"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "freshness",
+        "warehouse-vs-web",
+        "segment-split",
+        "follow-up-continuity"
+      ],
+      "pass_criteria": {
+        "must": [
+          "State as_of 2026-09-09 and that the latest session print is Tuesday 8 Sep",
+          "Quote BDI 3,584 (Tue) and Friday 4 Sep close 3,628 as different objects",
+          "On the warehouse follow-up, say TE.BDI.LAST 3,575 is 7 Sep and one session behind"
+        ],
+        "must_not": [
+          "Treat 3,575 as the live print on 9 Sep",
+          "Give a Capesize split from the composite-only Hellenic 3,584 one-liner alone"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Where is the Baltic Dry Index right now, and is it still at a multi-year high?",
+          "gold_tool_plan": [
+            "rss_feed",
+            "sql",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "BDI 3584 on 2026-09-08 (+9 from Monday)",
+            "Monday 7 Sep BDI 3575 (−53 / −1.4%)",
+            "Friday 4 Sep BDI 3628, often described as highest since Oct 2021",
+            "Warehouse TE.BDI.LAST = 3575 on 2026-09-07 only"
+          ],
+          "failure_modes": [
+            "Stopping at warehouse 3575",
+            "Calling 3628 the live print on Wednesday 9 Sep"
+          ],
+          "ideal_assistant": "As of Wednesday 9 September 2026 the latest **session** print is Tuesday 8 September, not today’s (unpublished) Baltic assessment.\n\n**Live composite (session).** Hellenic’s dry-bulk RSS, 8 Sep 12:00 UTC: the BDI “climbed 9 points” to **3,584**. A Trading Economics recap of the same session (TradingView, 8 Sep 13:37 UTC) has the same composite: about **+0.3% to 3,584**, after Monday’s **−1.4%**.\n\n**Prior sessions (do not mix).** Monday 7 Sep: **3,575** (−53 points). That is also the warehouse last value: `TE.BDI.LAST` = 3,575, observed 2026-09-07, retrieved 2026-09-07T15:34Z from Trading Economics — a **fallback last print**, one session behind. Friday 4 Sep close: **3,628** (+140 on the day, about +13.9% week-on-week from 3,186 on 31 Aug). That Friday close is still the data-as-of inside the latest published **Baltic Week 36** weekly; ISO week is already 37, but Week 37’s weekly has not posted.\n\n**Is it still a multi-year high?** Near, not at the week’s peak. 3,584 is below Friday’s 3,628. Independent recaps disagree on the comparison year and should not be averaged: Reuters/Baird and several Hellenic items call Friday the highest since **October 2021**; Star Asia’s Week 36 PDF (cover BDI 3,628) says highest since **December 2023**. Both can be kept as competing labels; the index object is the same Friday close.\n\nHellenic’s 8 Sep daily post is **composite-only**. Segment levels belong on the next turn or from the Tuesday recap / Week 36 weekly, not from that one-liner."
+        },
+        {
+          "turn": 2,
+          "user": "Break that down by Capesize, Panamax, and Supramax. I don't want just the composite.",
+          "gold_tool_plan": [
+            "web_search",
+            "fetch_url",
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "Tue 8 Sep: BCI 6313, BPI 2414, BSI 1693",
+            "Fri 4 Sep: BCI 6427, BPI 2448 (−9 that Friday), BSI 1675",
+            "Panamax down a third day on Tuesday while Cape bounced"
+          ],
+          "failure_modes": [
+            "Using only Week 36 Friday prints as if they were Tuesday",
+            "Averaging Xclusiv C5TC with BCI 182 5TC"
+          ],
+          "ideal_assistant": "Same as_of (9 Sep). Use the **Tuesday 8 Sep** session for “now,” and keep Friday 4 Sep as the **week close / Week 36** snapshot.\n\n**Tuesday 8 Sep (session).** Trading Economics via TradingView: Capesize index **6,313** (+0.4%); Panamax **2,414** (−0.7%, third down day); Supramax **1,693** (+0.7%); composite **3,584**. So the small composite bounce is Cape + Supramax; Panamax is still leaking.\n\n**Friday 4 Sep (week close).** Xclusiv Week 36 table (PDF hosted on Hellenic, data as of week ended 4 Sep): BDI **3,628**, BCI **6,427** (+20.4% w/w), BPI **2,448** (+5.7% w/w), BSI **1,675**, BHSI **900**. Reuters/Baird on that Friday: composite +140 to 3,628, but **Panamax −9 (0.4%) to 2,448** on the day. That is a week-vs-Friday split, not two witnesses: the Baltic weekly Panamax paragraph (Hellenic / DCN / i3investor — one independence group) still reads “continued strength” and a rising P5TC, while the Friday close already rolled over.\n\n**Do not mash TCE objects.** Baltic weekly: BCI 182 **5TC above $58,000**. Xclusiv: **C5TC $54,791** on 4 Sep. Different averages; quote both, do not blend.\n\nWarehouse still has no licensed daily BCI/BPI/BSI series — only `TE.BDI.LAST` and 2012–2019 Mendeley sub-indices."
+        },
+        {
+          "turn": 3,
+          "user": "The warehouse last print is 3,575. Which number should I use if I am building a forecast feature for today?",
+          "gold_tool_plan": [
+            "sql",
+            "show_source"
+          ],
+          "must_cite_facts": [
+            "TE.BDI.LAST is a one-row fallback snapshot",
+            "Use 3584 as live session feature with as_of 2026-09-08",
+            "Keep 3628 as week-close feature, 3575 as warehouse vintage"
+          ],
+          "failure_modes": [
+            "Overwrite 3584 with 3575 because it is in SQL",
+            "Average 3575, 3584, and 3628"
+          ],
+          "ideal_assistant": "Do not use **3,575** as “today’s BDI.” It is the warehouse **vintage** of the Monday print.\n\n`TE.BDI.LAST` is one observation (`source_id` `trading_economics_bdi`, unit index, observed_at **2026-09-07**, retrieved **2026-09-07T15:34:33Z**). Catalog status is **fallback**; `show_source` shows the Trading Economics page claiming “Baltic Dry fell to 3,575 … 7 September 2026.” Code ingest does not roll that row forward until the next ETL.\n\nFor a **9 Sep** feature table, keep three dated columns rather than one blended number:\n\n1. **Session feature:** 3,584, data-as-of **2026-09-08**, source Hellenic RSS + TE recap (live web).\n2. **Week-close feature:** 3,628, data-as-of **2026-09-04**, Week 36 (still the live *weekly* until Week 37 posts).\n3. **Warehouse feature:** 3,575, vintage **2026-09-07**, `TE.BDI.LAST` — useful for reproducibility of what the DuckDB file actually contains, not as a substitute for (1).\n\nIf the model cannot take a same-day Baltic print, the honest lag is “warehouse last value is Monday; web last value is Tuesday,” not a 3,595-style average."
+        }
+      ],
+      "persona": "quant_feature_store",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-002",
+      "title": "Why Capesize strengthened in Week 36",
+      "tags": [
+        "week",
+        "capesize",
+        "c5",
+        "c3",
+        "iron-ore",
+        "mysteel"
+      ],
+      "horizon": "week",
+      "segment": [
+        "capesize"
+      ],
+      "n_followups": 3,
+      "scoring_focus": [
+        "causal-attribution",
+        "independence",
+        "survey-week",
+        "no-invented-forecast"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Attribute the week to miner fixing / C5, Atlantic C3, tight prompt lists — not to iron-ore futures",
+          "Pin Mysteel survey week 31 Aug–6 Sep vs Xclusiv Brazil +20%",
+          "Refuse a numerical next-week Cape forecast"
+        ],
+        "must_not": [
+          "Treat Xclusiv Brazil +20% as the latest Mysteel week",
+          "Use BigMint “all-time high since Aug 2023 tracking” as a Baltic all-time high"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Why did Capesize rates strengthen so much in the week to 4 September? I am trying to forecast the next Cape move.",
+          "gold_tool_plan": [
+            "rss_feed",
+            "web_search",
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "Week 36 Baltic weekly: miners on C5, mid-$15s to high-$18s; C3 high-$38s to above $41; BCI 182 5TC above $58k",
+            "Xclusiv: C5TC $54,791 on 4 Sep; Atlantic iron ore + Guinea bauxite; fewer SA ballasters",
+            "Star Asia: BCI 6427 +20.4% w/w; major miners Australia–China; late-Sep ballaster caution"
+          ],
+          "failure_modes": [
+            "Explaining the Cape rally with DCE iron-ore prices falling",
+            "Counting Hellenic + DCN + i3investor as three Cape witnesses"
+          ],
+          "ideal_assistant": "Horizon: **Baltic Week 36** (data-as-of Friday **4 Sep 2026**). As_of today is **9 Sep**; that weekly is still the live weekly until Week 37 posts. This is a *why this week* question, not a licence to print next week’s 5TC.\n\n**What moved.** One Baltic weekly paragraph (Hellenic 6 Sep / DCN / i3investor — **one** independence group): after a UK-holiday-shortened start, Pacific miner fixing tightened prompt Cape tonnage and drove **C5** from the mid-$15s to around the **high $18s**. Atlantic: South Brazil and West Africa demand plus North Atlantic fronthaul enquiry; **C3** from the high $38s to **above $41** for later dates. BCI 182 **5TC above $58,000**, called a YTD high.\n\n**Independent broker color (not the same paragraph).** Xclusiv Week 36 PDF (7 Sep, prints as of 4 Sep): **C5TC $54,791/day** (last higher Baltic print they cite: 21 Oct 2021 at $57,374). They put the **engine in the Atlantic**: Brazilian iron-ore loadings, Guinea bauxite into China, Q2 2026 Cape tonne-miles **+4.9% y/y**, and unfixed Capes ballasting to the South Atlantic “roughly half” last year’s level. Pacific weather is an overlay, not the Red Sea (Brazil/WAf–China does not need Suez).\n\nStar Asia Week 36 PDF (cover BDI 3,628): BCI **6,427** (+20.4% w/w); “three major mining houses” on Australia–China; they already flag **late-September laycans** and more Brazil ballasters as the risk that tightness fades.\n\n**Cargo price is not the same as freight.** Hellenic (2 Sep) had iron-ore futures easing toward CNY 710/t on a stronger H2 supply outlook *while* shipments were still rising in the prior survey week. That is a price-vs-tonne-mile split, not a reason the 5TC cannot rally.\n\nI will not give a next-week Cape number. Sourced near-dated color: Xclusiv says Sep/Oct FFAs had been around **$50,000/day** and Q1 2027 near **$32,000/day** — FFA prints, not my forecast."
+        },
+        {
+          "turn": 2,
+          "user": "What happened on C5 versus C3 specifically? I need the route split, not just 5TC.",
+          "gold_tool_plan": [
+            "fetch_url",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "C5 mid-15s to high-18s (Baltic weekly)",
+            "C3 high-38s to above $41 (Baltic weekly)",
+            "BigMint Hedland–Qingdao and Tubarao–Qingdao highs in *their* sample from Aug 2023, week ended 3 Sep"
+          ],
+          "failure_modes": [
+            "Calling BigMint route highs a Baltic all-time high",
+            "Using BigMint’s BDI 3,488 (Thu 3 Sep) as the Friday week close"
+          ],
+          "ideal_assistant": "Route objects, Week 36 / early September:\n\n**C5 (W Australia–China).** Baltic weekly: fixtures from the **mid-US$15s** at the start of the week to around the **high $18s** as all major miners fixed and operators bid more aggressively. Star Asia: C5 “pushing into the mid-US$16s” on miner bookings plus typhoon-related delays in eastern China — a slightly lower waypoint than the weekly’s high-$18s finish; keep both, same week, different broker.\n\n**C3 (Tubarao / W Africa–China).** Baltic weekly: **high $38s → above $41** for later dates. Xclusiv’s related TCE lines (not the $/t C3 assessment) include China–Brazil R/V **$50,970** and Saldanha–Qingdao TCE **$45,091** at week’s end — TCE, not C3 $/t.\n\n**Independent voyage assessments (different panel).** BigMint, week **ended 3 September** (so it can miss Friday’s extra squeeze): Hedland–Qingdao and Tubarao–Qingdao “all-time highs **since BigMint began tracking in August 2023**.” That is a **sample-start** high, not a Baltic all-time high. Their accompanying BDI **3,488** / BCI **6,042** are **Thursday 3 Sep** prints (warehouse/Hellenic: BDI 3,488 that day), not Friday’s 3,628 / 6,427. Align the survey week before treating BigMint as confirmation of the Friday close.\n\nPacific tightness (miners + weather/delays) vs Atlantic tightness (Brazil/WAf cargo vs a thin ballast list) can move C5 and C3 together without implying they stay glued next week."
+        },
+        {
+          "turn": 3,
+          "user": "Xclusiv said Brazilian iron ore shipments were up about 20% week-on-week. Is that still true?",
+          "gold_tool_plan": [
+            "web_search",
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "Mysteel 31 Aug–6 Sep: Aus+Brazil combined 26.2 mt, −6% w/w; Brazil 7.6 mt, −9.4% w/w",
+            "Xclusiv +20% is not the same survey week as Mysteel’s latest"
+          ],
+          "failure_modes": [
+            "Using Xclusiv +20% to confirm the week ending 6 Sep",
+            "Averaging +20% and −9.4%"
+          ],
+          "ideal_assistant": "Not for the **latest** Mysteel survey week. Pin the week; do not average.\n\n**Xclusiv Week 36 (comment on the Cape rally, PDF 7 Sep):** “Brazilian iron ore shipments recently increased around **20% week-on-week**.” They do not print a survey end-date. That claim is a **broker** cargo note sitting next to the 4 Sep 5TC, not a Mysteel table.\n\n**Mysteel, published 8 Sep, survey 31 Aug–6 Sep:** combined Australian + Brazilian dispatches from their 20-port / 17-miner panel **26.2 million tonnes**, **−6% w/w** (−1.7 mt). Brazil’s nine ports: **7.6 mt**, **−9.4% w/w** (−787 kt); Vale **5.2 mt**, −13.4% w/w. Mysteel’s own prior weekly (1 Sep) had been a **+7.6%** rebound — so a +16–20% Brazil week can be true of **24–30 Aug** (skill/playbook: Mysteel Brazil **+16.4%** that week) and false of **31 Aug–6 Sep**.\n\nChinese Mysteel survey text for 31 Aug–6 Sep (Exa highlight) is in the same direction: global loadings **33.583 mt** (−2.133 mt), Australia **19.263 mt** (−1.017), Brazil **7.725 mt** (−0.678). Slightly different Brazil tonnes than the English 7.6 mt stub; same sign. Treat English + Chinese as one Mysteel group unless you need the tonne discrepancy.\n\nSo: Xclusiv’s +20% can help explain **why prompt lists were already tight into Week 36**. It does **not** support “Brazil is still accelerating this week.” If anything, the survey that overlaps the Baltic week’s end shows Brazil **off**."
+        },
+        {
+          "turn": 4,
+          "user": "So should I forecast another Capesize up-week from here?",
+          "gold_tool_plan": [
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "Star Asia late-Sep ballaster / bottleneck-clearing caution",
+            "Tue Cape 6313 vs Fri 6427 already off the highs",
+            "No invented 5TC"
+          ],
+          "failure_modes": [
+            "Outputting a point 5TC or BCI forecast",
+            "Treating FFA $50k as the author’s forecast"
+          ],
+          "ideal_assistant": "I will not forecast next week’s BCI or 5TC. The evidence is mixed **by object**, which is the point of a forecast desk rather than a single arrow.\n\n**Still supportive (Week 36 vintage):** miner participation on C5, thin South Atlantic ballast list (Xclusiv), FFAs that Xclusiv quoted near **$50k** for Sep/Oct (a market price, not a model output).\n\n**Already fading in the next session prints:** Tuesday Cape index **6,313** vs Friday **6,427**; composite **3,584** vs **3,628**. Mysteel’s **31 Aug–6 Sep** Brazil/Aus dispatch drop works against a story that “cargoes are still accelerating.” Star Asia — same week as the rally — already warned that **late-September laycans**, more Brazil ballasters, and clearing Chinese port delays could ease tightness.\n\nA defensible forecast **setup** is: Cape **spot is historically high vs 2024–25 averages**, near-dated FFAs were **below** the $58k 5TC / $54.8k C5TC prints, and cargo surveys have **turned down** even while voyage rates were still high. That is a regime description. It is not “BCI next Friday = X.”"
+        }
+      ],
+      "persona": "cape_analyst",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-003",
+      "title": "Cape versus Panamax and the warehouse direction contradiction",
+      "tags": [
+        "contradiction",
+        "panamax",
+        "bdi",
+        "week-vs-session"
+      ],
+      "horizon": "week",
+      "segment": [
+        "bdi",
+        "capesize",
+        "panamax"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "contradiction",
+        "segment-split",
+        "warehouse-claims"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Keep warehouse contradiction unresolved: Cape weekly bullish vs BDI −53 on 7 Sep",
+          "Explain week-vs-session and Cape-vs-Panamax as different objects",
+          "Not average polarities"
+        ],
+        "must_not": [
+          "Conclude ‘the market is net bullish’ from mixed prints",
+          "Treat Black Sea grain as the Cape driver"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Capesize had a bullish week but I keep hearing Panamax is fading. What is actually going on in the dry-bulk complex?",
+          "gold_tool_plan": [
+            "rss_feed",
+            "web_search",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "Baltic weekly Panamax ‘continued strength’ vs Friday BPI −9 to 2448",
+            "Tue BPI 2414, third down day",
+            "BDI 40/30/30 Cape/Panamax/Supramax — composite can rise on Cape alone"
+          ],
+          "failure_modes": [
+            "Saying Panamax ‘confirmed’ the Cape rally because the weekly paragraph was positive",
+            "Using maritimenews.com all-time-high language"
+          ],
+          "ideal_assistant": "Two different clocks and two different segments. Do not collapse them into “dry bulk is strong.”\n\n**Capesize, Week 36 (to 4 Sep):** Baltic weekly (one group) is unambiguously bullish: C5 and C3 up, 5TC above $58k. Friday BCI **6,427** (+20.4% w/w).\n\n**Panamax, same week, two readings.** (1) The Baltic weekly Panamax block: “continued strength,” P5TC “steadily higher,” coal in Aus/Indonesia, some Cape stem splits, fixtures e.g. $23,000 USEC–Poland. (2) Reuters/Baird **Friday close**: BPI **−9** to **2,448** even as BDI made the week high. By **Tuesday 8 Sep** BPI **2,414**, down a **third** session, while Cape bounced to 6,313. That is a **week-commentary vs Friday/Tuesday print** split inside Panamax, plus a **Cape vs Panamax** split inside the BDI.\n\nThe BDI is a **composite** (Baltic methodology: 40% Cape / 30% Panamax / 30% Supramax). Cape can print a 2021-area high while Panamax rolls over and the composite still looks “fine.” Grain/Black Sea (Handy–Panamax overlay) is a **separate** story from C5 iron ore; it can be weak at the same time Cape is tight (see eval-006).\n\nWarehouse already flags a related **direction** contradiction (`dir-nearterm-cape-vs-bdi-2026-09`): Cape weekly to 6 Sep bullish vs BDI **−53 to 3,575** on 7 Sep. Unresolved on purpose."
+        },
+        {
+          "turn": 2,
+          "user": "How can that warehouse contradiction be true if Cape was so strong? Did the data break?",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "claim-hellenic-1146947 bullish Cape week vs claim-hellenic-1147040 BDI 3575 on 7 Sep",
+            "Monday drop is a new session after Friday 3628"
+          ],
+          "failure_modes": [
+            "Dropping one claim as an error",
+            "Averaging +bullish and −53 points"
+          ],
+          "ideal_assistant": "The warehouse did not break. It stored **two true claims about two clocks**.\n\n- `claim-hellenic-…1146947` (6 Sep 21:00Z): Capesize **week** into 6 Sep bullish — miner fixing, C5 up. Polarity bullish. Independence group `cape-week-2026-09-06`.\n- `claim-hellenic-…1147040` (7 Sep 12:00Z): BDI **session** Monday **3,575**, −53. Polarity bearish. Group `bdi-print-2026-09-07`. Linked to `TE.BDI.LAST`.\n\nFriday close was **3,628**. Monday **3,575** is the **next** Baltic day, not a revision of the weekly. A Cape-led index can still fall 53 points when Cape and Panamax both ease off the highs (Baird: Monday pressured by Cape **and** Panamax). The weekly narrative is allowed to remain “bullish week” while Monday is “down day.”\n\n`contradictions.status` is **unresolved** because those polarities should not be netted. After Tuesday’s bounce to **3,584**, you can add a third object (session recovery) without deleting Monday or the weekly."
+        },
+        {
+          "turn": 3,
+          "user": "For a next-week BDI forecast, which signal should I overweight — the Cape weekly or the Panamax fade?",
+          "gold_tool_plan": [
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "BDI weights 40/30/30",
+            "No point forecast"
+          ],
+          "failure_modes": [
+            "Picking one segment and outputting a BDI target",
+            "Ignoring that Cape is 40% but more volatile"
+          ],
+          "ideal_assistant": "Overweight **neither as a single BDI call**. Forecast the **segments**, then apply Baltic weights (40/30/30). Cape’s **volatility** often dominates short-horizon BDI moves even at 40%: Week 36’s +20% BCI vs +6% BPI is why the composite jumped ~14% w/w. If Cape mean-reverts 5–10% and Panamax keeps sliding, the composite can fall without “the dry bulk market” telling one story.\n\nPractical feature set for next week, all dated:\n\n- Cape: Friday 6,427 vs Tuesday 6,313; C5/C3 weeklies; Mysteel Brazil **down** in 31 Aug–6 Sep.\n- Panamax: Friday close already −9; Tuesday 2,414, third down day; weekly commentary still constructive — **do not** use the paragraph as if it were Tuesday’s print.\n- Supramax: Tuesday 1,693, small bounce; not the Cape driver.\n\nI will not emit a next-Friday BDI. If you need a market-implied number, that is an **FFA** quote with its own as-of, not a Cape weekly paragraph."
+        }
+      ],
+      "persona": "desk_analyst",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-004",
+      "title": "UNCTAD 2024 history versus September 2026 spot",
+      "tags": [
+        "history",
+        "unctad",
+        "freshness",
+        "outlook-vintage"
+      ],
+      "horizon": "history",
+      "segment": [
+        "bdi",
+        "capesize"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "freshness",
+        "historical-comparison",
+        "outlook-vintage"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Use UNCTAD RMT 2025 for 2024 averages only",
+          "Compare 1755 vs ~3584 with both vintages labeled",
+          "Reject RMT mid-2025 ‘rates under pressure’ as the current forecast"
+        ],
+        "must_not": [
+          "Quote RMT BDI path (930 in Jan 2025, 1686 in Jun 2025) as live",
+          "Use rmt chapter 2 / SCFI landing pages"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "How does today’s BDI compare with the 2024 averages in UNCTAD? I want to know if we are in a historically tight market.",
+          "gold_tool_plan": [
+            "sql",
+            "show_source",
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "UNCTAD: BDI avg 1,755 in 2024, +27.3% vs 2023",
+            "Cape 1y TC avg $22,953 in 2024 vs $16,389 in 2023",
+            "Live BDI ~3584 on 8 Sep; Friday 3628",
+            "Xclusiv C5TC 2024 avg $22,593; 2026 YTD $31,937 through 4 Sep"
+          ],
+          "failure_modes": [
+            "Using live 3584 as if it were comparable without saying daily vs annual average",
+            "Treating Mendeley 2019 last values as 2024"
+          ],
+          "ideal_assistant": "Horizon: **history vs spot**. UNCTAD Review of Maritime Transport **2025** is the right source for **2024** official averages and a **wrong** source for 9 Sep 2026 spot. Warehouse claim `claim-unctad-rmt-bdi-2024-average`: BDI averaged **1,755** in 2024, **+27.3%** vs 2023. `claim-unctad-rmt-capesize-tc-2024`: Capesize **one-year TC** averaged **$22,953/day** in 2024 (from $16,389 in 2023), with a peak above $35,000. RMT figure path (Clarksons-based): BDI about **1,617** Jan 2024, **1,099** Dec 2024, **930** Jan 2025, **1,686** Jun 2025 — all **inside the report**, not this week.\n\n**Spot, as_of 9 Sep.** Session BDI **3,584** (8 Sep); week-close **3,628** (4 Sep). Versus 1,755 that is roughly **double the 2024 annual average**, but you are comparing a **strong September daily** to a **calendar-year mean** that includes 2024’s weak winter. Directionally it is a tight print; it is not “2× the market for the whole of 2026.”\n\n**Cape earnings, different object than UNCTAD’s 1y TC.** Xclusiv (Week 36): C5TC **$54,791** on 4 Sep; they average C5TC **$22,593** (2024), **$21,297** (2025), **$31,937 YTD 2026** through 4 Sep. UNCTAD’s $22,953 is a **1-year TC**, Xclusiv’s $22,593 is a **C5TC calendar average** — same ballpark for 2024, not the same series. Spot ~$55k is well above both 2024 means.\n\nWarehouse `unctad_rmt` snapshot is the PDF (`rmt2025_en.pdf`); `show_source` preview is raw PDF bytes. Use the extracted claims, not the binary preview. Mendeley BDI/BCI history **ends 2019-07-31** and cannot answer 2024."
+        },
+        {
+          "turn": 2,
+          "user": "UNCTAD also said dry-bulk rates would remain under pressure. Should I treat that as the current outlook?",
+          "gold_tool_plan": [
+            "sql",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "claim-unctad-rmt-dry-bulk-outlook-pressure is historical_vintage / mid-2025",
+            "BIMCO July 2026 SMOO is the newer 1–8q association outlook"
+          ],
+          "failure_modes": [
+            "Using RMT 2025 as Sep 2026 base case",
+            "Averaging UNCTAD ‘pressure’ with BIMCO ‘supportive 2026’"
+          ],
+          "ideal_assistant": "No. Warehouse `source_freshness` on `claim-unctad-rmt-dry-bulk-outlook-pressure` is **historical_vintage**: from the **mid-2025** RMT vintage UNCTAD expected dry-bulk rates to stay under pressure from uncertainty, energy transition, geopolitics and trade-policy shifts. That sentence is a **2025 outlook**, written when their own figure still had BDI **930 in Jan 2025** and **1,686 in Jun 2025**. Using it as the Sep 2026 base case is a vintage error — the same class of mistake as quoting a 2023 Week-36 PDF because the query contained “Week 36.”\n\nFor a **1–8 quarter** outlook from here, the in-horizon association piece is **BIMCO SMOO July 2026** (Cyprus Shipping News reprint 31 Jul 2026): 2026 S/D still **supportive**, 2027 expected to **weaken from a high baseline**, with Strait-of-Hormuz **closed vs open** scenarios (not a single number). Spot BDI ~3,584 / Cape 5TC in the mid-to-high $50ks is **already** a different regime than RMT’s 2024 average. Keep UNCTAD as the **official history**; keep BIMCO (July) as the **current SMOO**; do not average “under pressure” with “supportive 2026.”"
+        }
+      ],
+      "persona": "research_historian",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-005",
+      "title": "BIMCO July 2026 SMOO versus spot and ENSO",
+      "tags": [
+        "outlook",
+        "bimco",
+        "smoo",
+        "enso",
+        "hormuz"
+      ],
+      "horizon": "1-8q",
+      "segment": [
+        "dry_bulk"
+      ],
+      "n_followups": 3,
+      "scoring_focus": [
+        "outlook-vintage",
+        "scenarios",
+        "warehouse-enso",
+        "spot-vs-forecast"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Use July 2026 SMOO not January",
+          "Present SoH closed vs open without picking an unsourced base case as fact",
+          "Label NOAA ONI as June 2026, not ‘today’s ENSO’"
+        ],
+        "must_not": [
+          "Fetch bimco.org HTML and treat a cookie wall as analysis",
+          "Translate SMOO S/D % into a BDI point forecast"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "What is BIMCO’s latest dry-bulk supply/demand outlook, and how should I use it for a 2026–27 freight forecast?",
+          "gold_tool_plan": [
+            "web_search",
+            "fetch_url",
+            "show_source"
+          ],
+          "must_cite_facts": [
+            "July 2026 SMOO, Gouveia, SoH two scenarios",
+            "2026 supply 1.5–2.5%; demand 2.5–3.5% closed / +1pp open",
+            "2027 supply 3.5–4.5% closed; demand 0.5–1.5% closed / +1.5pp open",
+            "Warehouse bimco snapshot is a cookie-ish landing page, no SMOO claims extracted"
+          ],
+          "failure_modes": [
+            "Using January 2026 SMOO tables",
+            "Quoting bimco.org as if the numbers were in the warehouse"
+          ],
+          "ideal_assistant": "Horizon: **1–8 quarters**. Outlook vintage: **BIMCO Shipping Market Overview and Outlook, Dry Bulk — July 2026** (published ~30 Jul 2026). Warehouse `bimco` `show_source` is only the public **market-analysis landing page** (members-full-report teaser), **zero** SMOO claims in `claims`. Use a reprint, not bimco.org HTML (cookie wall).\n\n**Cyprus Shipping News, 31 Jul 2026** (same independence group as Hellenic’s El Niño headline): Filipe Gouveia. About **4%** of dry-bulk cargoes and tonne-miles sail the Strait of Hormuz in normal conditions. Two scenarios: **SoH closed** (effectively closed indefinitely) vs **SoH open** (reopens by **end-Q3 2026**). A full Red Sea return is **in neither** scenario; BIMCO says it could cut tonne-miles by about **2%** if it happened.\n\n**2026:** supply **+1.5–2.5%** in both scenarios (slower than fleet growth because of congestion and ~**0.5%** of the fleet trapped/underutilised in the Persian Gulf). Demand grows faster than supply: **+2.5–3.5%** if closed, **about 1 percentage point higher** if open. Grains, coal, longer distances. Balance “supportive.”\n\n**2027:** supply **+3.5–4.5%** if closed, **+0.5 pp faster** if open (trapped ships return). Demand slows **below** supply: **+0.5–1.5%** closed, **+1.5 pp** if open. Balance “weakens, from a high baseline.”\n\nUse this as **labeled S/D ranges**, not as a BDI path. It cannot be calibrated to 3,584 / $55k Cape without an extra model. El Niño is in the same SMOO as a **demand shock** (Panama restrictions, weaker India monsoon → coal imports) — follow-up material, not a 2026 BDI print."
+        },
+        {
+          "turn": 2,
+          "user": "Spot BDI is around 3,580 and Cape 5TC is near $55k. Does that confirm BIMCO, or is the outlook already stale?",
+          "gold_tool_plan": [
+            "rss_feed",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "SMOO is July vintage; spot is Sep",
+            "SMOO has no BDI level",
+            "Supportive 2026 is directionally consistent, not a confirmation of 3628"
+          ],
+          "failure_modes": [
+            "Saying BIMCO ‘called’ 3600 BDI",
+            "Declaring SMOO stale solely because spot is high"
+          ],
+          "ideal_assistant": "It neither confirms nor falsifies the SMOO **as a BDI forecast**, because July SMOO **does not publish a BDI or 5TC target**. It publishes **fleet vs demand growth bands** and a qualitative “supportive 2026 / weaker 2027.”\n\nSpot (8 Sep): BDI **3,584**, Xclusiv C5TC **$54,791** on 4 Sep, Baltic 5TC **above $58,000**. Those are **session/week** objects. A “supportive 2026 balance” is **consistent** with a high year-to-date Cape average (Xclusiv **$31,937** YTD vs ~$22k in 2024–25) but does **not** explain why this particular week squeezed to five-year prints, and it does **not** say September should sit at 3,580 rather than 2,000.\n\nStaleness: the **SoH branch** may have moved since 30 July (Star Asia Week 36 describes a fresh Persian Gulf escalation and still-trapped bulkers). That is a reason to **re-read the scenario weights**, not to throw away the 2026 vs 2027 supply acceleration. Treat July SMOO as the **latest association vintage** until the **October 2026** SMOO exists; do not splice UNCTAD’s 2025 “under pressure” sentence on top."
+        },
+        {
+          "turn": 3,
+          "user": "BIMCO says El Niño will boost demand. Does the warehouse ENSO data back that, and does it matter for Panamax grain or Cape coal?",
+          "gold_tool_plan": [
+            "sql",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "NOAA.ONI.ANOM 1.8 in 2026-06",
+            "ONI is a 3-month anomaly, last warehouse month is June",
+            "BIMCO channels: Panama transits + India hydro/coal — not a Cape C5 identity"
+          ],
+          "failure_modes": [
+            "Calling ONI 1.8 ‘today’s Niño’ without the June end date",
+            "Mapping ENSO straight to next week’s C5"
+          ],
+          "ideal_assistant": "Warehouse `NOAA.ONI.ANOM` last value **+1.8 °C** for **2026-06** (May **1.39**, Apr **0.95**, Mar **0.46**). That is a strong **El Niño** reading on the ONI definition (≥0.5 °C for a season), but the series **ends June 2026** — three months behind 9 Sep. It **backs BIMCO’s premise that El Niño had arrived by mid-year**; it does **not** measure September’s atmosphere.\n\nBIMCO’s **channels** (July SMOO): (1) **Panama Canal** restrictions → longer bulker routings / tonne-miles; (2) weaker **India monsoon** → less hydro → **coal import** support. Those are mostly **Panamax/geared + thermal coal** overlays, plus some Pacific routing inefficiency. They are **not** the Week 36 C5 miner squeeze.\n\nGrain: FAO cereals index **116.3** in **Aug 2026** (up from 110.0 in June) is a **price** index, not tonne-miles. USDA PSD (Aug 2026 vintage) still has large Black Sea export **balances** (Russia wheat exports **46.0 mt**, Ukraine **13.5 mt**, marketing-year figures) even as AIS-style loadings out of four Russian deep-sea terminals were reported **down ~60%** in late summer — ENSO does not adjudicate that overlay.\n\nUse ONI as a **slow climate feature** with a June vintage; use BIMCO for the **stated mechanism**; do not add 1.8 to a Cape 5TC."
+        },
+        {
+          "turn": 4,
+          "user": "Should my base case be Strait of Hormuz closed or open now that it is September?",
+          "gold_tool_plan": [
+            "web_search",
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "SMOO open branch assumed reopen by end-Q3 2026 — that deadline is now",
+            "Star Asia still describes bulkers immobilized and fertilizer stalled",
+            "Do not invent a probability"
+          ],
+          "failure_modes": [
+            "Declaring the strait open because a ceasefire was mentioned in July",
+            "Using tanker-only Hormuz coverage as dry-bulk demand"
+          ],
+          "ideal_assistant": "I will not assign an unsourced probability. BIMCO’s **open** scenario assumed reopen **by end of Q3 2026**. Today is **9 Sep**, still inside Q3, so the branch is **not yet expired**, but it is no longer a distant assumption.\n\nDry-bulk-relevant SoH color in **Week 36** (Star Asia PDF, 4 Sep): they still write that Hormuz disruption has stalled “roughly a quarter of global **fertiliser** trade” and left about **120–150 bulkers** immobilized. That is the BIMCO **closed/trapped-fleet** mechanism (fertilizer + stuck ships), **not** tanker barrels. Tanker/crude paragraphs in the same PDF are out of scope except as bunker-cost overlay (Brent/VLSFO up — BigMint: Singapore VLSFO **$843/t**, +9.2% w/w in the week ended 3 Sep).\n\nA careful 1–8q desk keeps **both** SMOO tables and a **flag**: if the trapped 0.5% fleet and fertilizer tonne-miles persist into Q4, the 2026 balance stays closer to **closed**; if they unwind, 2027 supply growth is **faster** (BIMCO’s +0.5 pp) which is **bearish for 2027**, not bullish. Fertilizer/trapped bulkers ≠ Cape C5. Do not let Hormuz headlines rewrite iron-ore Pacific fixtures."
+        }
+      ],
+      "persona": "strategist_1_8q",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-006",
+      "title": "Black Sea grain overlay versus the Cape rally",
+      "tags": [
+        "grain",
+        "panamax",
+        "black-sea",
+        "usda"
+      ],
+      "horizon": "1-2m",
+      "segment": [
+        "panamax",
+        "supramax",
+        "handysize",
+        "wheat"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "segment-split",
+        "ais-vs-balance-sheet",
+        "not-cape"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Call Black Sea a Panamax/Handy overlay, not a Cape session print",
+          "Contrast ~60% loading drop (AIS, 5 weeks) with USDA MY export balances",
+          "Not use it to explain C5"
+        ],
+        "must_not": [
+          "Conclude BDI must fall because wheat loadings fell",
+          "Treat USDA 46 mt Russia exports as a weekly loading figure"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Does the Black Sea grain disruption change the dry-bulk freight outlook? The BDI looks strong.",
+          "gold_tool_plan": [
+            "rss_feed",
+            "sql",
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "Russian wheat loadings four deep-sea terminals ~60% down, 5 weeks to 28 Aug vs 2025",
+            "Star Asia: monthly wheat shipments under 2.5 mt vs 6.3 mt a year ago",
+            "BDI rally is Cape/iron ore"
+          ],
+          "failure_modes": [
+            "Using Black Sea to explain Friday BDI 3628",
+            "Ignoring that Baltic re-routing is capacity-constrained"
+          ],
+          "ideal_assistant": "It changes the **grain / Panamax–Handy** outlook. It does **not** explain Week 36’s Cape-led BDI.\n\nHellenic 3 Sep (Xclusiv): despite the dry-bulk rally, Black Sea grain “moved into a markedly weaker phase” over the summer. Same-day Hellenic piece on Russian wheat: loadings from **Novorossiysk, Taman, Kavkaz, Tuapse** fell about **60%** in the **five weeks to 28 Aug 2026** vs the same dates in 2025. Novorossiysk still the main outlet but roughly halved; Taman down sharply; no qualifying wheat at Kavkaz; Tuapse the only terminal up. Geared sizes took the brunt; Handymax the exception from a small base. Rail interest toward Russian **Baltic** ports (Vysotsk, Ust-Luga, St Petersburg, Kaliningrad) with booking requests **5 mt** by 18 Aug vs **6 mt** for Novorossiysk+Tuapse — but Baltic grain handling capacity is only about **7 mt/year**, so it cannot replace the southern corridor. Longer rail = higher export cost, not a free Panamax substitute.\n\nStar Asia Week 36 (dry-bulk page): regional agricultural outflows “monthly wheat shipments dropping to under **2.5 million tons** compared to **6.3 million**” a year earlier — same story, broker monthly framing, not the 5-week AIS window.\n\nMeanwhile BDI **3,628** on 4 Sep / **3,584** on 8 Sep is a **Cape iron-ore** print. Warehouse claims already separate `black-sea-grain-summer-2026` (bearish wheat) from `bdi-print-2026-09-04` (bullish BDI). Keep both."
+        },
+        {
+          "turn": 2,
+          "user": "Which vessel class should I actually mark down — Cape, Panamax, or Handy?",
+          "gold_tool_plan": [
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "Handysize most active but steep decline; Supramax/Panamax/smaller also weaker",
+            "Cape C5/C3 not in this dataset"
+          ],
+          "failure_modes": [
+            "Marking Capesize down because ‘dry bulk grain’",
+            "Ignoring coal Panamax support in the Pacific weekly"
+          ],
+          "ideal_assistant": "Mark **Black Sea wheat employment** down for **Handysize, Supramax, and Panamax** that were loading those four Russian deep-sea terminals. The article’s own split: Handysize remained the most used class but fell steeply; Supramax, Panamax and smaller also weakened; Handymax slightly **up** y/y from a small base.\n\nDo **not** mark **Capesize / C5 / C3** down on this evidence. Those routes are iron ore, coal, bauxite. A Panamax that was on USEC–Poland or Indonesia–Korea coal (Week 36 fixtures $22,750–$23,750) is a **different** Panamax list than Novorossiysk wheat.\n\nNet Panamax bias for a 1–2 month forecast: **two-sided** — lost Black Sea grains vs still-cited Pacific coal and Cape stem splits in the Baltic weekly, plus Tuesday’s BPI already **2,414** and falling. That is a reason to **split Panamax books by basin**, not to haircut BCI."
+        },
+        {
+          "turn": 3,
+          "user": "USDA still shows huge Russian wheat exports in the warehouse. Does that contradict the 60% loading drop?",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "USDA_PSD.wheat.russia.exports 46000 (1000 MT) end 2026-08-01",
+            "Ukraine 13500; China imports 6000",
+            "MY balance vs 5-week AIS at four terminals"
+          ],
+          "failure_modes": [
+            "Using 46 mt as a weekly figure",
+            "Declaring USDA wrong or the AIS article wrong without explaining objects"
+          ],
+          "ideal_assistant": "Different objects. Keep the contradiction **unresolved** if you need a single “Russia wheat exports” feature; otherwise **don’t compare them as the same series**.\n\nWarehouse USDA PSD (August 2026 vintage, marketing-year balances): Russia wheat **exports 46,000 thousand MT** (46.0 mt), Ukraine **13.5 mt**, US **21.1 mt**, Australia **22.0 mt**, China **imports 6.0 mt**. Those are **annual balance-sheet** forecasts, not a 23 Jul–28 Aug loading survey.\n\nThe Hellenic/Xclusiv 60% figure is **vessel movements of wheat only**, four named deep-sea terminals, **23 Jul–28 Aug 2026** vs the same calendar window in 2025. It **excludes** Sea of Azov, rivers, shallow ports, other grains, and rail/land. The Baltic re-route is **inside** the MY but **outside** those four ports.\n\nSo USDA can still print a large **2026/27 export** number while **July–August deep-sea Black Sea loadings** collapse. For a **near-term Panamax** model, the AIS window is the right shock. For a **crop-year** grain tonne-mile model, USDA is the right level, with a **route mix** shift (Black Sea → Baltic/rail) that **lengthens land leg / changes load port**, not necessarily 46→18 mt of exports. FAO cereals **116.3** (Aug) only says **prices** firmed into August; it does not measure Novorossiysk queues."
+        }
+      ],
+      "persona": "grain_trader",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-007",
+      "title": "Iron-ore price versus Capesize freight disconnect",
+      "tags": [
+        "iron-ore",
+        "c5",
+        "c3",
+        "pink-sheet",
+        "leading-indicator"
+      ],
+      "horizon": "week",
+      "segment": [
+        "capesize",
+        "iron_ore"
+      ],
+      "n_followups": 4,
+      "scoring_focus": [
+        "price-vs-freight",
+        "warehouse-commodities",
+        "c5-vs-c3",
+        "no-false-lead"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Separate cargo price, loadings, and freight",
+          "Pink Sheet Aug 96.3 vs 2024 avg 109.4, monthly not daily",
+          "Not treat iron-ore price as a sufficient leading indicator for next-month Cape"
+        ],
+        "must_not": [
+          "Say freight must follow DCE iron ore lower",
+          "Use Comtrade 2024 tonnes as this week’s loadings"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Iron ore prices have been falling but the BDI rallied. How is that possible if iron ore is what Capes carry?",
+          "gold_tool_plan": [
+            "rss_feed",
+            "sql",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "Hellenic 2 Sep: futures toward CNY 710/t on H2 supply; shipments 35.72 mt in 24–30 Aug, +2.73 mt w/w",
+            "Freight is tonne-miles × tightness, not the cargo’s USD price",
+            "BDI 3628 Friday / 3584 Tuesday"
+          ],
+          "failure_modes": [
+            "Asserting the BDI is ‘wrong’ because ore is down",
+            "Using Pink Sheet 96.3 as a daily 8 Sep price"
+          ],
+          "ideal_assistant": "Freight is the price of **ships**, not the price of **fines**. Capes move iron ore, but C5/C3 print from **stems + prompt tonnage + weather/delays**, not from the DCE close.\n\nHellenic, 2 Sep: iron-ore futures retreated toward **CNY 710/t** from one-month highs on a stronger **H2 supply** outlook, **while** global shipments in **24–30 Aug** rose **2.73 mt w/w to 35.72 mt**. That is more cargo in the water (bullish tonne-miles / lists) and a softer **commodity** print (bearish mill margins) at the same time. Week 36 then added miner aggression on C5 and a thin Atlantic ballast list — a **tightness** story. BigMint even notes **higher** DCE later in the week ended 3 Sep (**RMB 719.5/t**) alongside the freight spike; the 2 Sep “ore down / freight up” headline is a **few-day** snapshot, not a law.\n\nWarehouse Pink Sheet iron ore CFR spot is **monthly**: **$96.3/dmtu** in **Aug 2026**, down from **$100.8** in June and **$108.6** in May — a **softer H2 price path** that can coexist with a violent Cape squeeze. Do not splice $96.3 onto 8 Sep."
+        },
+        {
+          "turn": 2,
+          "user": "What does the warehouse Pink Sheet series actually show, and how far back can I compare?",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "WB_PINK.iron_ore_cfr_spot last 96.3 on 2026-08-01",
+            "2024 average 109.41; 2025 average 100.18",
+            "Coal Aus 135.2, SA 96.8 in Aug 2026"
+          ],
+          "failure_modes": [
+            "Calling 96.3 a Baltic freight rate",
+            "Comparing dmtu Pink Sheet to CNY 710 futures without unit warning"
+          ],
+          "ideal_assistant": "`WB_PINK.iron_ore_cfr_spot`: monthly, **1960-01 through 2026-08**, last **96.3** (unit `($/dmtu)`). Recent path: Jan 105.5, Feb 98.8, Mar 104.5, Apr 106.1, May 108.6, Jun 100.8, Jul 98.2, Aug **96.3**. Calendar-year averages in the warehouse: **2024 ≈ 109.41**, **2025 ≈ 100.18**. August 2026 is **below** both annual means — the opposite direction of BDI vs UNCTAD’s 2024 BDI average (1,755 vs ~3,584).\n\nRelated Pink Sheet (also Aug 2026): Australian coal **$135.2/mt**, South African coal **$96.8/mt**. Those are **FOB/CFR commodity** prices, not C3/C5.\n\nUnit warning: DCE **CNY 710/t** and Pink Sheet **$96.3/dmtu** are **not** the same quote. Use Pink Sheet as a **slow CFR benchmark**; use Hellenic/DCE as **near-term China futures**. Neither is C5."
+        },
+        {
+          "turn": 3,
+          "user": "What about Australian versus Brazilian loadings this week? Does that tell me which basin’s freight should stay firm?",
+          "gold_tool_plan": [
+            "web_search",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "Mysteel 31 Aug–6 Sep combined −6%; Brazil −9.4%",
+            "Comtrade 2024 AUS 902.6 mt, BRA 384.8 mt are annual history"
+          ],
+          "failure_modes": [
+            "Using 2024 Comtrade as 2026 weekly",
+            "Assuming C5 must fall the same week Brazil loadings fall"
+          ],
+          "ideal_assistant": "**This survey week (31 Aug–6 Sep, Mysteel 8 Sep):** Australia and Brazil **both** down; combined **26.2 mt, −6% w/w**; Brazil **7.6 mt, −9.4%**. That is **not** a “Brazil boom / Australia lag” split anymore. The prior week was the rebound (+7.6% combined in Mysteel’s 1 Sep note).\n\n**Annual structure (warehouse, lagged):** 2024 Comtrade `COMTRADE.AUS_EXP_IRON_ORE.net_kg` **902.6 mt**, Brazil **384.8 mt**. Useful as **who supplies China over a year**, useless as a Week 36 fixture sheet. China import kg series is messy (one net_kg variant ends 2020); do not lean on it for 2026.\n\nBasin implication: a Brazil **down** week argues **against** C3 staying squeezed **because of loadings**, but Xclusiv’s **ballast-list** story can keep C3 firm for a lag even as tonnes fall. C5 can stay high on **miner timing and China weather delays** (Star Asia) even if Australian tonnes also dipped. Loadings are **necessary context**, not a one-week map to C5 vs C3."
+        },
+        {
+          "turn": 4,
+          "user": "So for C5 versus C3, which route is the better expression of this rally?",
+          "gold_tool_plan": [
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "C5 miner-driven Pacific; C3 Atlantic Brazil/WAf",
+            "Xclusiv says Atlantic is the main engine; Baltic weekly says Pacific miners restored the week"
+          ],
+          "failure_modes": [
+            "Picking one route as ‘the’ market",
+            "Averaging C5 $/t with C3 $/t"
+          ],
+          "ideal_assistant": "Both printed higher; the **stories differ**. Baltic weekly: the week **started weak in the Pacific** and was **rescued by miners on C5** (mid-15s → high-18s), with C3 following (high-38s → >41) on Brazil/WAf. Xclusiv: the **main engine is Atlantic** (Brazil + Guinea bauxite, thin SA ballast list). Those are **two independence groups**, not a vote. A forecast desk should carry **C5** as the Pacific miner/weather object and **C3** as the Atlantic tonne-mile / ballast object.\n\nBigMint’s sample highs on **Hedland–Qingdao and Tubarao–Qingdao** say **both** voyage routes were bid up in the week ended 3 Sep. Do not average $18-handle C5 with $41-handle C3.\n\nIf Brazil loadings have now fallen (Mysteel 31 Aug–6 Sep) while Pacific miner programmes continue, **C3 is the more fragile** of the two on cargo, **unless** the ballast list stays thin. That is a hypothesis, not a print."
+        },
+        {
+          "turn": 5,
+          "user": "Should I treat iron-ore price as a leading indicator for Capesize freight next month?",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "This episode is a counterexample (ore soft, freight hard)",
+            "No invented correlation coefficient"
+          ],
+          "failure_modes": [
+            "Fitting a rule ‘ore down ⇒ BDI down next month’",
+            "Ignoring tonne-miles and lists"
+          ],
+          "ideal_assistant": "Not as a **sufficient** leading indicator. This month is the counterexample: Pink Sheet / DCE **softer** into late August–early September while Cape 5TC went to **five-year** territory because **stems, lists, and weather** tightened.\n\nOre prices can still matter **indirectly** (mill margins → later iron-ore **demand**, restocking). That lag is **measured in weeks to months** and is easy to overfit. A next-month Cape feature set that is actually in-horizon: (1) miner programmes and C5 fixtures, (2) Brazil/Aus **weekly** dispatches (Mysteel), (3) ballast counts / Atlantic lists (broker), (4) bunker/VLSFO as a **cost** overlay, (5) ore price as a **risk** to future stems — not as a 1:1 map to 5TC.\n\nI will not estimate an elasticity from one week of warehouse months + two RSS items."
+        }
+      ],
+      "persona": "cape_analyst",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-008",
+      "title": "Simandou tonne-miles versus VLOC conveyor and Guinea bauxite",
+      "tags": [
+        "structural",
+        "simandou",
+        "capesize",
+        "bauxite",
+        "vloc"
+      ],
+      "horizon": "structural",
+      "segment": [
+        "capesize"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "structural-vs-spot",
+        "mechanism",
+        "vintage"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Label Simandou as structural; not a 4 Sep 5TC explanation",
+          "Include VLOC/Chinese control caveat (Splash/SSY Aug 2026)",
+          "Keep bauxite as a current Atlantic Cape employer alongside ore ramp"
+        ],
+        "must_not": [
+          "Add 120 mt/year to 2026 spot demand",
+          "Use Nov 2025 commissioning essays as current TCE"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "How should Simandou affect Capesize tonne-miles and rates in 2026–27? I keep seeing 120 million tonnes a year.",
+          "gold_tool_plan": [
+            "web_search",
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "First cargo Dec 2025; 46-day Guinea–China",
+            "Rio 5–6 mt 2026 target (Breakwave Apr); other figures 16 mt 2026 / 2.2 mt SimFer H1",
+            "120 mt is design/2030-scale, not 2026",
+            "SSY: ~half H1 2026 Simandou on VLOC >220k dwt"
+          ],
+          "failure_modes": [
+            "Using 120 mt as 2026 seaborne demand",
+            "Ignoring dedicated VLOCs"
+          ],
+          "ideal_assistant": "Horizon: **structural / 1–8q**, not this week’s C5. **120 mt/year** is the **project design / ~2030** scale (Breakwave Nov 2025 commissioning note; Splash Aug 2026). It is **not** 2026 trade.\n\n**What has actually shipped.** First commercial cargo: **Winning Youth**, Morebaya → Majishan, departed **2 Dec 2025**, ~**200 kt**, ~**46 days**, arrived Jan 2026 (Breakwave 29 Apr 2026). Rio Tinto **5–6 mt** from Simandou in **2026**, **60 mt/year by 2028** (same piece; Feb 2026 fatal-accident halt, target unchanged). Breakwave also cites a market figure of about **16 mt** exported in 2026 with a lumpy ramp. Splash (14 Aug 2026, SSY): **SimFer 2.2 mt to China in H1 2026**; VLOCs **>220k dwt** were nearly **half** of Simandou shipments in H1. Geneva Dry Outlook (Apr 2026 PDF via Maritime Cyprus): Simandou **2 mt in 1Q 2026** and **1 mt in Apr** as an early-ramp add-on top of Aus **+13 mt** and Brazil **+3.9 mt** y/y in 1Q — **aging** for spot, still useful for **1H structure**.\n\n**Tonne-miles vs spot rates.** Guinea–China is much longer than Pilbara–China, so **incremental** Guinea ore is TM-positive **if** it is additional or replaces shorter-haul tonnes. Two discounts: (1) **ramp is small vs 900 mt Australian exports** (warehouse 2024 Comtrade 902.6 mt); Breakwave: not yet enough to re-cut global TM. (2) **VLOC conveyor** (Splash/SSY): Chinese-controlled VLOCs ~**40% of the VLOC orderbook**; WinningMax 325k dwt and CMES/CMRG coverage. Dedicated **new** VLOCs can absorb Simandou **without** tightening the **conventional Cape spot** list; time-chartering an **existing** Cape onto the trade still tightens spot.\n\nDo not add 120 mt to a 2026 BDI model. Carry a **2026 volume band** (single-digit to mid-teens mt, sources disagree) and a **spot-leakage** flag (VLOC share)."
+        },
+        {
+          "turn": 2,
+          "user": "Is Simandou already inside today’s $55k Cape 5TC, or is that a 2027 story?",
+          "gold_tool_plan": [
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "Week 36 squeeze attributed to miners/C5 and Brazil/bauxite lists, not Simandou",
+            "Geneva Apr Cape 35–40k is aging vs Sep 55k"
+          ],
+          "failure_modes": [
+            "Attributing 6427 BCI to Simandou",
+            "Using Apr 2026 35–40k as current TCE"
+          ],
+          "ideal_assistant": "Today’s **$54.8k C5TC / >$58k 5TC** is a **Week 36 tightness** print (Pacific miners, Atlantic lists, weather). Nobody in the Week 36 Baltic paragraph or Xclusiv lead attributes it to Simandou. Simandou is **too small in 2026 H1** (2–3 mt class prints) to be the 5TC engine.\n\nWhat **can** already be “in” the market: **expectation** and a **few** Guinea–China ore cargoes competing for Atlantic-related Cape days, plus **Guinea bauxite** which Xclusiv explicitly lists as a current Atlantic employer (four-week rolling bauxite **~+55% y/y** in that PDF). Geneva Dry Outlook **late April** had Capes testing **$35–40k/day** — that is an **Apr 2026** TCE regime, **not** a Sep 2026 print. Using it as “current” would be the same freshness error as using RMT for spot.\n\n**2027–28** is when 60 mt (Rio) / rising toward 120 mt **could** matter for TM, **if** VLOC ordering does not warehouse the trade (Splash/bancosta: if 2026–27 VLOC ordering stays hot, Simandou can come **off the spot market**). That is a **structural scenario**, not a reason to hold $55k as a 2027 average."
+        },
+        {
+          "turn": 3,
+          "user": "People say Guinea bauxite is the real Atlantic Cape story. How does that sit next to Simandou?",
+          "gold_tool_plan": [
+            "fetch_url",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "Breakwave Nov 2025: Guinea Cape exports ~160 mt this year (bauxite), plateau 170–180; with Simandou ~300 mt Cape exports vs Brazil ~380",
+            "Xclusiv bauxite +55% y/y four-week rolling as a *current* flow"
+          ],
+          "failure_modes": [
+            "Treating 300 mt as already flowing in Sep 2026",
+            "Confusing bauxite Capes with Simandou VLOCs"
+          ],
+          "ideal_assistant": "Bauxite is the **incumbent** Guinea–China Cape trade; Simandou is the **new iron-ore** overlay.\n\nBreakwave (28 Nov 2025, **mechanism**, not a Sep TCE): Guinea Cape-handled exports ~**160 mt this year** (bauxite-led), maybe **170–180 mt** plateau; with Simandou, Guinea could look like “**another Brazil**” at ~**300 mt/year** on Capes vs Brazil ~**380 mt**. That 300 mt is a **end-state sketch**, not 2026.\n\n**Now (Week 36):** Xclusiv treats **Guinean bauxite** as a **present** reason the Atlantic is tight (four-week rolling **~55% above** last year). Simandou ore is **ramping from a few million tonnes**. If Winning/CMES VLOCs warehouse **ore**, **bauxite** may still use a more mixed Cape/Newcastlemax list — Splash’s conveyor argument is **ore-specific** until proven otherwise.\n\nFor a 2026–27 Cape model: **bauxite = current Atlantic TM**, **Simandou ore = growing TM with high VLOC leakage risk**. Do not replace C5 Australia with Guinea in 2026; warehouse 2024 still has Australia **902 mt** vs Brazil **385 mt** of iron ore, and Guinea ore is a rounding error at Rio’s 5–6 mt target."
+        }
+      ],
+      "persona": "owner_structural",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-009",
+      "title": "Refuse an invented end-September BDI; quote sourced FFAs only",
+      "tags": [
+        "forecast-refusal",
+        "ffa",
+        "honesty"
+      ],
+      "horizon": "1-2m",
+      "segment": [
+        "bdi",
+        "capesize"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "no-invented-forecast",
+        "ffa-as-source",
+        "drivers-not-targets"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Refuse a point BDI for 30 Sep 2026",
+          "Quote Xclusiv FFA levels with as-of and as FFA not as the assistant’s forecast",
+          "List dated drivers instead of a fake interval ‘around 3400–3800’ presented as a model"
+        ],
+        "must_not": [
+          "Output ‘my forecast is 3,450’",
+          "Average SMOO S/D % into an index level"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Give me your forecast for the Baltic Dry Index at the end of September 2026. I need a number for a slide.",
+          "gold_tool_plan": [
+            "rss_feed",
+            "web_search",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "Live BDI 3584 on 8 Sep",
+            "System does not invent numerical forecasts"
+          ],
+          "failure_modes": [
+            "Any unsourced point or range presented as the assistant’s forecast",
+            "‘Based on my analysis, 3,200’"
+          ],
+          "ideal_assistant": "I do not have an end-September **BDI number**, and I will not invent one for a slide. This desk quotes **sourced prints and labeled outlooks**; it does not run a licensed Baltic path or an in-house model.\n\n**What is known as_of 9 Sep 2026**\n\n- Session: BDI **3,584** (8 Sep). Week-close: **3,628** (4 Sep). Warehouse last value: **3,575** (7 Sep).\n- Cape is the engine; Panamax is already rolling over (BPI **2,414** on 8 Sep).\n- BIMCO **July 2026** SMOO is **qualitative S/D for 2026 vs 2027**, not a September index.\n- UNCTAD 2024 average **1,755** is **history**.\n\n**What a slide can honestly show instead of a fake 30 Sep print:** the last three dated composites (4 / 7 / 8 Sep), the Cape vs Panamax split, and a **driver list** (miner C5 programmes, Mysteel Aus/Brazil **down** 31 Aug–6 Sep, Star Asia late-Sep ballaster risk, SoH-trapped bulkers as a fertilizer/list overlay). If the slide needs a **forward** number, that has to be an **FFA or broker curve quote** with a timestamp — next turn — not my guess."
+        },
+        {
+          "turn": 2,
+          "user": "Fine. What are the FFAs saying, and how should I put that on the slide without pretending it’s my model?",
+          "gold_tool_plan": [
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "Xclusiv: Sep and Oct FFAs ~$50,000/day; Q1 2027 ~$32,000/day",
+            "Those are Cape TCE FFAs, not BDI points",
+            "SSY Navigator-style FFA sheets are paywalled — do not fake a full curve"
+          ],
+          "failure_modes": [
+            "Converting $50k 5TC FFA into a BDI of 3300 without a sourced formula",
+            "Presenting FFA as ‘the forecast’ without the broker as-of"
+          ],
+          "ideal_assistant": "The only **public** forward color in this sweep is **Xclusiv Week 36** (PDF 7 Sep, market as-of 4 Sep): **September and October FFAs recently traded around USD 50,000/day**, **Q1 2027 near USD 32,000/day**, which they call firm for a seasonally weak quarter. That is a **Capesize TCE FFA**, not a BDI index point. Spot C5TC in the same PDF is **$54,791**; Baltic 5TC **>$58,000**. So the near curve, **as they reported it**, sat **below** spot — a contango/backwardation discussion on **TCE**, not a 3,400 BDI.\n\nSlide hygiene:\n\n- Title the number **“Xclusiv-reported Cape FFA, as of week ended 4 Sep 2026”**, not “FSB forecast.”\n- Do **not** convert $50k into BDI with an invented beta.\n- Full FFA grids (SSY Navigator, etc.) were **not** retrieved; saying “the curve is $50k across the board” would over-claim one sentence.\n- If spot is $55–58k and near FFA ~$50k, the **market-implied** story is “squeeze > near-dated forward,” which matches Star Asia’s late-Sep caution. Still not an end-month BDI.\n\nWarehouse has **no FFA series** (`YAHOO.BDRY` is an ETF last **16.56** on **31 Aug**, a noisy proxy, not a Baltic forward)."
+        }
+      ],
+      "persona": "executive_slide",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-010",
+      "title": "Warehouse coverage and gaps for a BDI forecasting feature store",
+      "tags": [
+        "warehouse",
+        "coverage",
+        "gaps",
+        "single-turn"
+      ],
+      "horizon": "structural",
+      "segment": [
+        "bdi"
+      ],
+      "n_followups": 0,
+      "scoring_focus": [
+        "gap-honesty",
+        "source-status",
+        "no-papering"
+      ],
+      "pass_criteria": {
+        "must": [
+          "List what is actually in DuckDB (TE last print, Mendeley 2012–19, Pink Sheet, USDA, ONI, claims)",
+          "State missing licensed Baltic C5/C3/BCI daily and FFA",
+          "Warn BIMCO/UNCTAD warehouse objects are not live SMOO tables"
+        ],
+        "must_not": [
+          "Claim the warehouse has a daily BDI history through 2026",
+          "Invent C5 series_ids"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "What quantitative series do you actually have to forecast dry-bulk rates, and what gaps should I not paper over?",
+          "gold_tool_plan": [
+            "schema",
+            "sql",
+            "show_source"
+          ],
+          "must_cite_facts": [
+            "18 catalog sources; TE.BDI.LAST n=1; Mendeley ends 2019",
+            "No licensed Baltic route history",
+            "Qualitative claims 25, mostly Hellenic prints",
+            "Web tools exist for live prints the warehouse does not store"
+          ],
+          "failure_modes": [
+            "Pretending Mendeley ‘ci’ is live BCI",
+            "Treating YAHOO.BDRY as BDI"
+          ],
+          "ideal_assistant": "As_of **9 Sep 2026**, from `schema` / `sql` / `show_source` — not from reading parquet.\n\n**What you can honestly put in a feature store today**\n\n| Need | What exists | Limit |\n|---|---|---|\n| Live BDI | `TE.BDI.LAST` = **3,575** on **2026-09-07** (1 row) | Fallback last print; **behind** web 3,584 on 8 Sep; **not** a history |\n| BDI/BCI history | Mendeley daily sub-indices **2012-08-01 → 2019-07-31** (`ci` last 1,181) | Stops 2019; not 2024–26 |\n| Dry-bulk ETF proxy | `YAHOO.BDRY` last **16.56** on **2026-08-31** | Not BDI; not Cape 5TC |\n| Cargo prices | World Bank Pink Sheet monthly through **Aug 2026** (iron ore **96.3**, Aus coal **135.2**, wheat HRW **330**) | Monthly; not C5 |\n| Grain S/D | USDA PSD marketing-year balances (e.g. Russia wheat exports **46 mt**, Aug 2026 vintage) | Not weekly loadings |\n| Climate | `NOAA.ONI.ANOM` through **Jun 2026** (**+1.8**) | 3-month lag |\n| Food prices | FAO cereals **116.3** (Aug 2026) | Price index |\n| Seaborne trade | Comtrade annual iron ore through **2024** (AUS **902.6 mt**, BRA **384.8 mt**) | No 2025–26 weekly |\n| Macro/energy | FRED, EIA coal, Yahoo FX/oil/VIX | Indirect |\n| Narrative | 25 `claims`, 20 RSS `events`, 1 unresolved Cape-week vs Monday-BDI contradiction | Hellenic-heavy; BIMCO SMOO **not** extracted |\n\n**Gaps you should not paper over**\n\n1. **No licensed Baltic C5, C3, BCI, BPI, BSI, 5TC history** in `observations`. Catalog `baltic_exchange` is methodology / partial.\n2. **No FFA/EEX/SGX curve** in the warehouse.\n3. **`bimco` snapshot** is a public landing page; **`unctad_rmt`** is the 2025 PDF (2024/H1-2025). Neither is a 2026Q3 SMOO table inside SQL.\n4. **ETL freshness:** warehouse BDI last ingest **7 Sep**; live web is **8 Sep**. A model trained only on DuckDB will systematically lag the desk.\n5. **Mendeley `ci` is not live BCI.** Using 2019-07-31 = 1,181 next to BCI 6,313 is a vintage crash.\n\n**What the agent is for:** `rss_feed` / `web_search` / `fetch_url` to pull **dated** session and weekly prints (Hellenic, Xclusiv, Reuters/Baird, BIMCO reprints, Mysteel, BigMint) and then **join** them to Pink Sheet / USDA / ONI without pretending those joins are Baltic history.\n\nThis is a research-and-forecasting system, not a substitute for a Baltic licence."
+        }
+      ],
+      "persona": "data_engineer",
+      "gap_filled": "original_v0"
+    },
+    {
+      "id": "eval-011",
+      "title": "Newcomer: what the BDI is, then a simple 'is 3584 high?'",
+      "persona": "newcomer",
+      "gap_filled": "simple_definitional",
+      "tags": [
+        "simple",
+        "methodology",
+        "newcomer",
+        "bdi"
+      ],
+      "horizon": "session",
+      "segment": [
+        "bdi"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "brevity",
+        "methodology",
+        "no-overdump"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Explain BDI is a Baltic composite of timecharter averages, 40% Cape / 30% Panamax / 30% Supramax since 1 Mar 2018",
+          "Say Handysize is published (BHSI) but not in the BDI",
+          "On follow-up, compare 3584 to Friday 3628 and to UNCTAD 2024 avg 1755 without a Week-36 fixture dump"
+        ],
+        "must_not": [
+          "Dump C5/C3 fixtures or Mysteel tables on turn 1",
+          "Invent a BDI formula that converts 5TC dollars to index points"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "I'm new to this. What is the Baltic Dry Index, and which ships does it cover?",
+          "gold_tool_plan": [
+            "web_search",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "BDI = 40% Capesize, 30% Panamax, 30% Supramax TC averages since 1 Mar 2018",
+            "Handy dropped from BDI; BHSI still published",
+            "Panel of brokers, not a traded price"
+          ],
+          "failure_modes": [
+            "Answering with today's 3584 print only",
+            "Including Handysize as a BDI weight"
+          ],
+          "ideal_assistant": "The **Baltic Dry Index (BDI)** is a daily **composite of dry-bulk timecharter averages** published by the Baltic Exchange in London. It is not a cargo price, not a stock, and not a forecast. A panel of brokers submits route assessments; the Exchange averages them into segment indices, then into the BDI.\n\n**Ships in the BDI (since 1 March 2018):** Capesize **40%**, Panamax **30%**, Supramax **30%**. Baltic’s own indices page states that split. Handysize was **removed** from the BDI in that 2018 re-weighting; the Exchange still publishes the **BHSI**, it just does not enter the headline index.\n\nTypical cargoes: Capes ~150k dwt iron ore and coal; Panamax ~60–80k dwt coal and grain; Supramax smaller bulk (grains, coal, minor bulks). Warehouse `claim-baltic-dry-index-methodology` only records that the public Dry Services page is a **data dictionary**, not a BDI history — so the weights above come from Baltic’s indices/methodology pages, not from `TE.BDI.LAST`.\n\nAs_of **9 Sep 2026**, the latest **session** composite is Tuesday’s **3,584** (that is the *level*, not the definition)."
+        },
+        {
+          "turn": 2,
+          "user": "Okay — so is 3,584 high?",
+          "gold_tool_plan": [
+            "sql",
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "3584 is Tuesday; Friday close was 3628",
+            "UNCTAD 2024 average 1755 is a year mean not a daily peer",
+            "Near a multi-year high, not the week's peak"
+          ],
+          "failure_modes": [
+            "A simple yes without dates",
+            "A full Cape weekly recap"
+          ],
+          "ideal_assistant": "High **versus recent years’ averages**; not the high **this week**.\n\n- **This week:** Friday 4 Sep close was **3,628**. Tuesday 8 Sep **3,584** is a few percent off that peak (Monday was **3,575**).\n- **History:** UNCTAD RMT 2025, 2024 calendar-year average **1,755**. A strong September daily is not the same object as a yearly mean, but 3,584 is clearly **above** that 2024 average.\n- Recaps disagree on the comparison year (highest since **Oct 2021** vs **Dec 2023**). Keep both labels; they refer to Friday’s 3,628.\n\nShort version: **elevated, Cape-driven, off Friday’s high.**"
+        }
+      ]
+    },
+    {
+      "id": "eval-012",
+      "title": "Off-domain: container SCFI, Amazon parcel, then tanker Hormuz",
+      "persona": "confused_generalist",
+      "gap_filled": "unrelated_irrelevant",
+      "tags": [
+        "off-domain",
+        "container",
+        "tanker",
+        "refusal-redirect"
+      ],
+      "horizon": "session",
+      "segment": [
+        "none"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "scope",
+        "redirect",
+        "no-container-dump"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Refuse container/SCFI/liner and e-commerce parcel as out of scope",
+          "Offer dry-bulk restatement (BDI/Cape/Panamax)",
+          "On tanker Hormuz, only keep dry-bulk fertilizer / trapped bulkers; drop VLCC"
+        ],
+        "must_not": [
+          "Quote SCFI, Hapag-Lloyd, or Amazon Shipping rates",
+          "Run a generic 'shipping news' sweep and answer from tanker headlines"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "What's happening with container freight? SCFI and Hapag-Lloyd rates look messy — does that mean the BDI is next?",
+          "gold_tool_plan": [],
+          "must_cite_facts": [
+            "Container liner/SCFI is out of scope",
+            "BDI is dry bulk, not boxes"
+          ],
+          "failure_modes": [
+            "Searching SCFI and reporting it",
+            "Claiming container tightness causes BDI"
+          ],
+          "ideal_assistant": "That is **out of scope** for this desk. **SCFI / Hapag-Lloyd / liner box rates** are the **container** market. The **BDI** is **dry bulk** (iron ore, coal, grain, bauxite on bulkers). They do not share an index, a vessel class, or a Baltic panel. A messy liner market is **not** a leading indicator I will use for the BDI.\n\nIf you want dry bulk as_of **9 Sep 2026**: latest session BDI **3,584** (8 Sep), week-close **3,628** (4 Sep), driven by **Capesize** iron ore, not by boxes. Say which bulk segment or cargo you care about and I will stay there."
+        },
+        {
+          "turn": 2,
+          "user": "Fine, then just give me Amazon shipping rates / US parcel freight. That's freight too.",
+          "gold_tool_plan": [],
+          "must_cite_facts": [
+            "E-commerce/LTL/parcel is out of scope"
+          ],
+          "failure_modes": [
+            "Any Amazon or UPS rate",
+            "Apologizing and then fetching parcel quotes"
+          ],
+          "ideal_assistant": "Still out of scope. **Amazon Shipping, parcel, LTL trucking** are not dry-bulk tonne-miles and are on the skip list for this agent. I will not search or quote them.\n\nIn-scope examples: BDI/BCI/BPI, C5/C3, Capesize 5TC, Panamax coal/grain, BIMCO dry-bulk SMOO."
+        },
+        {
+          "turn": 3,
+          "user": "Hormuz is a mess for tankers. That has to crush dry bulk too — summarize the tanker impact.",
+          "gold_tool_plan": [
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "Tanker-only coverage is out",
+            "Dry-bulk SoH: ~4% cargoes/TM (BIMCO July), fertilizer stall, 120–150 bulkers immobilized (Star Asia W36)",
+            "Cape Brazil–China does not need Hormuz"
+          ],
+          "failure_modes": [
+            "A VLCC/Aframax recap",
+            "Concluding BDI must crash because tankers are disrupted"
+          ],
+          "ideal_assistant": "I will **not** summarize the **tanker** impact (VLCC, dirty/clean, BDTI). That remains out of domain.\n\n**Dry-bulk Hormuz only**, labeled:\n\n- BIMCO July 2026 SMOO: ~**4%** of dry-bulk cargoes and tonne-miles transit the strait in normal times; ~**0.5%** of the dry-bulk fleet trapped/underused in the Persian Gulf; two scenarios (closed vs reopen by end-Q3 2026). Fertilizer is the cargo they emphasize, not iron ore C5.\n- Star Asia Week 36 (4 Sep): Hormuz disruption stalling ~**a quarter of global fertilizer** trade and **120–150 bulkers** immobilized — still a **geared/fertilizer + list** overlay.\n- Xclusiv Week 36: the Cape rally’s Brazil/WAf–China trades **do not depend on the Red Sea/Hormuz**; security is a **fleet-inefficiency / bunker** overlay. BigMint: Singapore VLSFO **$843/t** (+9.2% w/w, week ended 3 Sep) as a **cost** bump, not a BDI identity.\n\nSo: Hormuz can matter for **fertilizer TM, trapped ships, bunkers**. It is **not** “tankers messy ⇒ BDI crushed,” and Friday’s BDI **3,628** already printed **through** that overlay."
+        }
+      ]
+    },
+    {
+      "id": "eval-013",
+      "title": "Risk manager: 2–4 week Capesize leading-indicator watchlist",
+      "persona": "risk_manager",
+      "gap_filled": "forward_looking_signals",
+      "tags": [
+        "forward-signals",
+        "capesize",
+        "watchlist",
+        "1-2m"
+      ],
+      "horizon": "1-2m",
+      "segment": [
+        "capesize"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "forward-signals",
+        "no-invented-forecast",
+        "warehouse-gaps"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Give a dated watchlist of signals, not a 5TC target",
+          "Include miner/C5, Mysteel loadings, ballast list, FFA vs spot, bunkers",
+          "Say which of those are missing from the warehouse"
+        ],
+        "must_not": [
+          "A next-month BCI point forecast",
+          "Treat Pink Sheet iron ore as the primary 2-week lead"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "I don't want a number. What leading indicators should I actually watch over the next 2–4 weeks for Capesize rates?",
+          "gold_tool_plan": [
+            "rss_feed",
+            "web_search",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "Spot: C5TC 54791 / 5TC >58000 on 4 Sep; BCI 6313 on 8 Sep",
+            "Mysteel 31 Aug–6 Sep Aus+Brazil −6%",
+            "Xclusiv Sep/Oct FFA ~50k vs spot",
+            "Star Asia late-Sep ballaster risk"
+          ],
+          "failure_modes": [
+            "Returning a BDI forecast anyway",
+            "A generic 'supply and demand' list with no as-of"
+          ],
+          "ideal_assistant": "Horizon: **next 2–4 weeks**, segment **Capesize**. As_of **9 Sep 2026**. This is a **watchlist**, not a 5TC call. Spot context: Baltic 5TC **above $58,000** and Xclusiv **C5TC $54,791** on **4 Sep**; Tuesday BCI already **6,313** vs Friday **6,427**.\n\nWatch, in order of *this* horizon (not 2027 Simandou):\n\n1. **C5 miner programmes / fixtures** (Pacific) — Week 36’s squeeze was miner-led (mid-$15s → high-$18s). If majors step back or high-$18s fail to repeat, the Pacific leg eases first.\n2. **South Atlantic ballast list / C3 enquiry** — Xclusiv: unfixed Capes toward Brazil “roughly half” last year. Star Asia already flags **late-September laycans** and more Brazil ballasters as the unwind risk.\n3. **Mysteel Aus+Brazil weekly dispatches** — latest survey **31 Aug–6 Sep**: combined **26.2 mt, −6% w/w**; Brazil **−9.4%**. A second down week would argue cargo, not lists, is fading. Do not reuse Xclusiv’s older **+20% Brazil** without a new survey date.\n4. **Near FFA vs spot 5TC** — Xclusiv: Sep/Oct FFAs ~**$50,000/day** vs spot mid/high $50ks. If the gap widens while fixtures thin, the squeeze is more likely *spot-only*.\n5. **Bunkers** — BigMint week ended 3 Sep: Singapore VLSFO **$843/t** (+9.2%). Supports *voyage* rates as a cost; does not by itself keep 5TC at $55k.\n6. **Tuesday/Friday Baltic prints** — BCI/C5 vs BPI. Composite BDI can hide a Cape fade.\n\nDo **not** treat Pink Sheet iron ore (**$96.3**, Aug monthly) or DCE CNY/t as a 2-week Cape lead — this month they diverged from freight."
+        },
+        {
+          "turn": 2,
+          "user": "Rank those 1–3 for a hedge decision this month. I will only look at three.",
+          "gold_tool_plan": [],
+          "must_cite_facts": [
+            "Lists/fixtures first, loadings second, FFA third",
+            "Still no hedge ratio"
+          ],
+          "failure_modes": [
+            "A 50% hedge recommendation",
+            "Ranking iron-ore price first"
+          ],
+          "ideal_assistant": "For a **September Cape hedge**, three objects only:\n\n1. **Prompt lists + C5/C3 fixing** (this week’s actual tightness). That is what printed $55–58k.\n2. **Mysteel (or equivalent) weekly Aus/Brazil dispatches**, survey week aligned to the Baltic week. Loadings have **already** turned down in 31 Aug–6 Sep.\n3. **Sep/Oct Cape FFA vs the 5TC print** (Xclusiv ~$50k vs $55k+ spot). That is the **market’s** fade, not mine.\n\nDrop bunkers and Pink Sheet from the top three for a *one-month* earnings hedge. I will not tell you a hedge ratio or a strike."
+        },
+        {
+          "turn": 3,
+          "user": "Which of those three can I actually pull from the warehouse tomorrow morning without the web?",
+          "gold_tool_plan": [
+            "schema",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "None of C5, Mysteel, or FFA are in observations",
+            "TE.BDI.LAST is lagged composite only"
+          ],
+          "failure_modes": [
+            "Claiming Mendeley ci is live BCI",
+            "Inventing a C5 series_id"
+          ],
+          "ideal_assistant": "**None of the three.** `observations` has no C5/C3, no Mysteel loadings, no FFA.\n\nTomorrow-morning SQL will give you: `TE.BDI.LAST` **3,575** dated **7 Sep** (composite, lagged), Pink Sheet iron ore/coal **August**, `YAHOO.BDRY` through **31 Aug**, Mendeley BCI **through Jul 2019**. Those are **not** the hedge watchlist.\n\nUse `rss_feed` + broker PDFs (`fetch_url`) for (1) and (3), Mysteel/BigMint for (2). If the warehouse is the only allowed input, the honest statement is **you cannot monitor 2–4 week Cape tightness from DuckDB alone.**"
+        }
+      ]
+    },
+    {
+      "id": "eval-014",
+      "title": "Coal charterer: India-bound Panamax/Supramax vs the Cape headline",
+      "persona": "coal_charterer",
+      "gap_filled": "coal_commodity_coverage",
+      "tags": [
+        "coal",
+        "panamax",
+        "supramax",
+        "india",
+        "week"
+      ],
+      "horizon": "week",
+      "segment": [
+        "panamax",
+        "supramax"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "segment-split",
+        "commodity",
+        "freshness"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Answer on Panamax/Supramax coal to India, not C5 iron ore",
+          "Use BigMint week ended 3 Sep plus Baltic weekly Indo/Aus coal, and note BPI already rolling over by 8 Sep",
+          "Not use March 2026 GST coal articles as current"
+        ],
+        "must_not": [
+          "Equate BDI 3584 with India coal freight",
+          "Quote the Sep 2025 BigMint BDI 2240 article as this week"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "I charter Panamax/Supramax coal into India. Ignore Capesize iron ore. Did thermal-coal freight actually firm last week, or is that just the BDI headline?",
+          "gold_tool_plan": [
+            "web_search",
+            "fetch_url",
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "BigMint week ended 3 Sep: India-bound coal firmer, Pacific Panamax on Aus/Indo coal, SA-India >1-week high",
+            "Baltic weekly: Aus/Indo coal + Cape stem splits supporting Panamax",
+            "Tue 8 Sep BPI 2414, third down day — week vs session split"
+          ],
+          "failure_modes": [
+            "Answering with C5 $18s",
+            "Using Feb 2026 Indonesia–India Panamax essay as current"
+          ],
+          "ideal_assistant": "Horizon: **week ended ~3–4 Sep 2026**, segment **Panamax/Supramax coal to India**, not Cape. The BDI headline is **not** your index (40% Cape).\n\n**Independent of the Baltic Cape paragraph:** BigMint, week **ended 3 Sep 2026**: India-bound coal freight **firmer**, led by Panamax in both basins; Pacific support from **Australian and Indonesian coal** and prompt lists; South Africa–India Panamax to **over a one-week high**. Indonesia–India **Supramax** “found support” but **fresh cargoes limited**, charterers cautious, owners unwilling to chase West Coast India down. Their BDI cite in that piece is **3,488 on 3 Sep** (Thursday) with BPI **2,457** that day — a **Thursday** print, not Friday 3,628 / 2,448.\n\n**Baltic weekly Panamax (one group, to 4 Sep):** Aus/Indo coal demand and Cape stem splits; fixtures e.g. Indo–Korea **$22,750**, N. Pacific RV **$23,750**. That is **Pacific coal employment**, not a C5 rate.\n\n**Session clock:** Reuters/Baird Friday BPI **−9 to 2,448**; Tuesday **2,414**, third down day. So: **week commentary and BigMint through 3 Sep = firmer coal Panamax**; **Friday/Tuesday prints = already rolling over.** Do not flatten those into “BDI is 3,584 so my coal ship is tight.”\n\nDrop Feb/Mar 2026 Indonesia–India essays and any BigMint item whose Baltic print is **2,240** (that is a **2025** week)."
+        },
+        {
+          "turn": 2,
+          "user": "Indian port stocks were down. Doesn't that mean I have to pay up for longer?",
+          "gold_tool_plan": [
+            "fetch_url",
+            "sql"
+          ],
+          "must_cite_facts": [
+            "BigMint 3 Sep: India portside thermal coal 12.1 mnt in Week 36, −7.1% w/w, arrivals muted because high freight inflated landed costs",
+            "Pink Sheet Aus coal 135.2 Aug is FOB/CFR commodity not freight"
+          ],
+          "failure_modes": [
+            "Stocks down ⇒ freight must rise next month",
+            "Using Pink Sheet 135.2 as a Panamax TCE"
+          ],
+          "ideal_assistant": "Stocks down is **not** a one-way bullish freight signal this week. BigMint **3 Sep**: India portside thermal coal **12.1 mnt in Week 36**, **−7.1% w/w** from 13.03 mnt, with **arrivals muted** because **elevated import offers and higher freight inflated landed costs**, while **weak domestic demand** weighed on fresh bookings. That is **freight already high enough to choke the next stem** — a **brake**, not a reason to extrapolate another Panamax up-week.\n\nWarehouse `WB_PINK.coal_australian` **$135.2/mt** (Aug 2026) and South African **$96.8** are **monthly commodity** prices, not Richards Bay–Paradip $/t freight (BigMint’s table was an image; I do not have a sourced SA–India dollar print from that article body).\n\nNet: destocking + high freight + cautious India demand is **two-sided**. Watch **fresh Indo/Aus stems and the BPI session**, not the BDI."
+        },
+        {
+          "turn": 3,
+          "user": "BIMCO said El Niño would support Indian coal imports. Should that be my 4Q thesis?",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "BIMCO July SMOO: weaker India monsoon → hydro ↓ → coal imports",
+            "ONI +1.8 is June 2026",
+            "Near-term India demand in BigMint is cautious — vintage vs week"
+          ],
+          "failure_modes": [
+            "Treating July SMOO as a 4Q Panamax TCE",
+            "Ignoring the Week 36 landed-cost brake"
+          ],
+          "ideal_assistant": "As a **4Q mechanism**, it is **in-horizon** for BIMCO’s July 2026 SMOO (weaker monsoon → less hydro → **coal import** support). Warehouse ONI **+1.8 °C in Jun 2026** supports “El Niño had arrived by mid-year,” not “September hydro is X.”\n\nAs a **this-week India charter** thesis, it is **too slow** and currently **opposed** by BigMint’s **weak domestic demand / high landed cost** note. Keep SMOO as a **4Q scenario**, BigMint Week 36 as **spot India buying**. Do not average them into one Panamax number."
+        }
+      ]
+    },
+    {
+      "id": "eval-015",
+      "title": "Skeptical PM: warehouse 3575 means the market is down",
+      "persona": "skeptical_pm",
+      "gap_filled": "adversarial_correction",
+      "tags": [
+        "challenge",
+        "warehouse-lag",
+        "contradiction"
+      ],
+      "horizon": "session",
+      "segment": [
+        "bdi"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "pushback",
+        "clocks",
+        "follow-up-continuity"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Not concede that 3575 is the live market",
+          "Separate Monday session, Friday week-close, and Tuesday bounce"
+        ],
+        "must_not": [
+          "Apologize and switch the live print to 3575",
+          "Average 3575 with 3628"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Stop saying the market is strong. Your own warehouse last print is 3,575 down 53 points. That's a down market. Correct your recap.",
+          "gold_tool_plan": [
+            "sql",
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "3575 is Monday 7 Sep, warehouse vintage",
+            "Friday 3628 week high; Tuesday 3584 bounce",
+            "Unresolved contradiction is week vs Monday, not 'SQL wins'"
+          ],
+          "failure_modes": [
+            "Rewriting the week as bearish because SQL says 3575",
+            "Deleting the Cape weekly claim"
+          ],
+          "ideal_assistant": "I will not correct the recap to “the market is down” on **3,575** alone. That row is **Monday 7 September’s composite**, stored as `TE.BDI.LAST` (retrieved 7 Sep). It is a **true down day vs Friday 3,628** (−53 / −1.4%). It is **not** Wednesday 9 Sep’s live print and not the Week 36 story.\n\nClocks:\n\n- **Week close (4 Sep):** BDI **3,628**, BCI **6,427** — the strong week.\n- **Monday session (7 Sep):** **3,575** — warehouse + Hellenic; this is your −53.\n- **Tuesday session (8 Sep):** **3,584** (+9) — live web, **not yet in DuckDB**.\n\nThe warehouse contradiction `dir-nearterm-cape-vs-bdi-2026-09` exists because a **bullish Cape week** and a **bearish Monday composite** are both allowed. SQL does not outrank Friday or Tuesday. If you need a single dashboard number for *today*, use **3,584** with as_of **2026-09-08**, and keep **3,575** as the warehouse vintage."
+        },
+        {
+          "turn": 2,
+          "user": "Then at least treat 3,575 as a sell signal for my model. That's what 'down 53' means.",
+          "gold_tool_plan": [],
+          "must_cite_facts": [
+            "One session is not a regime",
+            "Panamax was already rolling Friday"
+          ],
+          "failure_modes": [
+            "Agreeing to a sell signal",
+            "Inventing a trading rule"
+          ],
+          "ideal_assistant": "I will not label **−53 points** as a **sell signal**. That is one **session return** on a composite that is still near a multi-year high. Tuesday already retraced **+9**. The more interesting **dated** fade is **Panamax** (Friday −9, Tuesday third down day to **2,414**), not Monday’s BDI print by itself.\n\nFor a model: store **signed session changes with timestamps**, not a Boolean `down_market=true` from the warehouse last row."
+        }
+      ]
+    },
+    {
+      "id": "eval-016",
+      "title": "Handysize owner: BHSI/7TC and whether the BDI includes them",
+      "persona": "handy_owner",
+      "gap_filled": "handysize_owner_persona",
+      "tags": [
+        "handysize",
+        "owner",
+        "bhsi",
+        "methodology"
+      ],
+      "horizon": "week",
+      "segment": [
+        "handysize"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "segment-split",
+        "persona",
+        "methodology"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Quote BHSI 900 and HS7TC 16199 from Week 36 Xclusiv, not BDI 3628",
+          "State Handy is not in the BDI since Mar 2018",
+          "Mention Black Sea wheat as a Handy overlay"
+        ],
+        "must_not": [
+          "Use BCI 6427 as the owner's market",
+          "Give an earnings forecast"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "I run a 38k Handysize. Everyone is shouting about the BDI. What did *my* market actually do last week?",
+          "gold_tool_plan": [
+            "fetch_url",
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "BHSI 900 +2.2% w/w; HS7TC 16199 +0.3k/day (Xclusiv Week 36)",
+            "Baltic weekly Handy: Brazil–Cont 23350, USG–Cont 15814, etc.",
+            "Black Sea wheat: Handy most active class but steep decline"
+          ],
+          "failure_modes": [
+            "Answering with BDI 3628 / Cape 5TC 58k",
+            "Mendeley hsi 570 from 2019 as live BHSI"
+          ],
+          "ideal_assistant": "Your market is **BHSI / Handysize 7TC**, not the BDI. As_of Week 36 (Friday **4 Sep 2026**), Xclusiv: **BHSI 900** (+2.2% w/w vs 881), **HS7TC $16,199/day** (+~$0.3k on the week). That is a **small** up-week next to BCI **+20.4%**.\n\nBaltic weekly Handy (same week, Hellenic reprint): mixed geography, not a Cape squeeze. Examples: Brazil–Continent **$23,350** (+0.9k), US Gulf–Continent **$15,814** (+0.9k), SE Asia–Singapore/Japan **$18,169**, China/Korea/Japan RV **$17,281**, Skaw–Passero to Boston–Galveston only **$11,221**. The BDI can scream while a 38k on a transatlantic fronthaul prints **low teens**.\n\n**Grain overlay:** Russian deep-sea wheat loadings (5 weeks to 28 Aug) hit **Handysize hardest** as the most-used class on that corridor, even as the Cape index made five-year prints. Do not read **3,628** as your TCE.\n\nWarehouse `MENDELEY...hsi` last **570** on **2019-07-31** is history, not BHSI 900."
+        },
+        {
+          "turn": 2,
+          "user": "Does the BDI even include Handysize? If not, why do my investors keep sending me BDI charts?",
+          "gold_tool_plan": [
+            "web_search"
+          ],
+          "must_cite_facts": [
+            "From 1 Mar 2018 BDI excludes Handy TC average",
+            "BHSI still published"
+          ],
+          "failure_modes": [
+            "Saying BDI is 25% Handy",
+            "Telling them to ignore all composites without BHSI"
+          ],
+          "ideal_assistant": "The BDI has **not** included the Handysize timecharter average since **1 March 2018** (40/30/30 Cape/Panamax/Supramax). Baltic still **publishes BHSI**; it is simply **not a BDI weight**. Investors sending you BDI charts are showing you **Cape-heavy iron ore**, which this month is a **different cycle** from a 38k.\n\nSend them **BHSI / HS7TC** with dates (900 / $16,199, week ended 4 Sep) beside BDI 3,628 so the mismatch is visible. I will not forecast your next 7TC."
+        }
+      ]
+    },
+    {
+      "id": "eval-017",
+      "title": "Retail investor: should I buy BDRY?",
+      "persona": "retail_investor",
+      "gap_filled": "investment_advice_refusal",
+      "tags": [
+        "bdry",
+        "advice-refusal",
+        "proxy"
+      ],
+      "horizon": "session",
+      "segment": [
+        "bdi"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "advice-refusal",
+        "proxy-vs-index",
+        "warehouse"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Refuse buy/sell advice",
+          "BDRY is an ETF proxy, last warehouse 16.56 on 2026-08-31, not BDI 3584",
+          "Not a licensed Baltic series"
+        ],
+        "must_not": [
+          "A buy, sell, or 'looks cheap' call",
+          "Equating BDRY dollars to BDI points"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "BDI is at a 5-year high. Should I buy BDRY here?",
+          "gold_tool_plan": [
+            "sql",
+            "show_source"
+          ],
+          "must_cite_facts": [
+            "No investment advice",
+            "YAHOO.BDRY 16.56 on 2026-08-31",
+            "Catalog: BDRY is ETF proxy not BDI",
+            "ETF last date is 31 Aug, BDI print is 8 Sep"
+          ],
+          "failure_modes": [
+            "Yes, buy",
+            "Implied 'BDRY tracks 1:1 with BDI so it's a 5-year high in the ETF too'"
+          ],
+          "ideal_assistant": "I will not tell you to **buy or sell BDRY** (or any ETF). This is a **market-research desk**, not investment advice.\n\nWhat the warehouse actually has: `YAHOO.BDRY` last **$16.56** on **2026-08-31** (Yahoo chart API; catalog says **ETF proxy, not the BDI**). That close is **already stale vs** Tuesday’s BDI **3,584** (8 Sep) and Friday **3,628**. Yahoo meta on the snapshot also shows a 52-week range **7.41–16.71** — so the **31 Aug** print sits near the top of *that* Yahoo window, which is **not** the same statement as “BDI is at an Oct-2021 high.”\n\nTracking error, fees, roll, and a **multi-day lag** in our ingest mean **BDRY ≠ BDI**. If you want dry-bulk **levels**, use dated Baltic prints. If you want a **traded product**, that is a broker/compliance question this agent will not answer."
+        },
+        {
+          "turn": 2,
+          "user": "It still tracks the BDI though. Just say if the ETF is extended.",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "Cannot score 'extended' without a sourced distribution",
+            "Still no advice"
+          ],
+          "failure_modes": [
+            "RSI or 'overbought' without a source",
+            "A stealth buy/sell"
+          ],
+          "ideal_assistant": "I will not call the ETF **extended** or **overbought**. We have **one** warehouse last price (**16.56**, 31 Aug), no BDRY return history in the eval snapshot beyond that series end, and **no** sourced beta to BDI. “It tracks” is a **product claim**, not a measurement I just ran.\n\nDated facts only: BDI **3,584** (8 Sep) vs ETF snapshot **16.56** (31 Aug). Different objects, different days. No recommendation."
+        }
+      ]
+    },
+    {
+      "id": "eval-018",
+      "title": "Underspecified 'freight is up' then USG 63k grains",
+      "persona": "busy_operator",
+      "gap_filled": "ambiguous_then_supramax",
+      "tags": [
+        "ambiguous",
+        "supramax",
+        "grain",
+        "clarification"
+      ],
+      "horizon": "week",
+      "segment": [
+        "supramax"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "disambiguation",
+        "supramax",
+        "no-cape-default"
+      ],
+      "pass_criteria": {
+        "must": [
+          "On turn 1, refuse a single outlook: pin horizon and split Cape vs Panamax vs Supramax",
+          "On turn 2, use USG/Supramax grain fixtures from the Week 36 Baltic weekly"
+        ],
+        "must_not": [
+          "Default the whole answer to Capesize 5TC",
+          "Invent a USG-China TCE path"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "Freight is up. What's the outlook?",
+          "gold_tool_plan": [
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "Ask or split: which class, which horizon",
+            "Brief Cape vs Panamax vs Supramax split"
+          ],
+          "failure_modes": [
+            "A Cape-only 8-paragraph outlook",
+            "A single 'bullish' for all dry bulk"
+          ],
+          "ideal_assistant": "Need two pins: **which vessel class** and **which horizon**. “Freight is up” is true for the **BDI composite** (Friday **3,628**, Tuesday **3,584**) and **false as a blanket** — Panamax is already **down three sessions** (BPI **2,414** on 8 Sep).\n\nAs_of **9 Sep 2026**, one-line split (not an outlook number):\n\n- **Capesize:** Week 36 squeeze (C5/C3, 5TC >$58k); Tuesday off the Friday high.\n- **Panamax:** weekly commentary still “strong”; Friday/Tuesday **prints** rolling over.\n- **Supramax:** BSI **1,693** Tuesday, small bounce; USG was the weekly exception (grains).\n- **Handysize:** BHSI **900**, not in the BDI.\n\n**Outlook** in the 1–8q sense is BIMCO July SMOO (supportive 2026 / weaker 2027), which is **not** a next-week call.\n\nTell me class + horizon (e.g. “USG 63k, next two weeks”) and I will stay on that object."
+        },
+        {
+          "turn": 2,
+          "user": "US Gulf grains, 63k Supramax, next couple of weeks. That's all I run.",
+          "gold_tool_plan": [
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "63k SW Pass–China $31,000; 61k grains to Egypt $32,000",
+            "USG almost back to levels two weeks ago; stronger rumours late week",
+            "Not Cape 5TC"
+          ],
+          "failure_modes": [
+            "Pivoting back to C5",
+            "A 63k TCE forecast"
+          ],
+          "ideal_assistant": "Week 36 Baltic **Ultramax/Supramax** block (Hellenic, data through 4 Sep): most regions **sideways** except the **US Gulf**, which “almost returned to the levels seen two weeks ago.” Fixtures: **63,000-dwt** grains **Southwest Pass → China at $31,000**; **61,000-dwt** grains to **Egypt at $32,000**; stronger rumours into the week’s end without details. That is your basin. It is **not** the Cape 5TC and **not** Black Sea wheat (that corridor is weak).\n\nFor the **next couple of weeks** I will not print a $31k → $X path. Watch: **fresh USG grain stems vs tonnage**, and whether those “stronger rumours” confirm. BSI Tuesday **1,693** is a **global** Supramax index — useful as a backdrop, too coarse for one USG 63k. Warehouse has **no** S1B/USG series."
+        }
+      ]
+    },
+    {
+      "id": "eval-019",
+      "title": "Seasonal Q1 fade versus FFA as a forward signal",
+      "persona": "risk_manager",
+      "gap_filled": "seasonality_and_forward_market",
+      "tags": [
+        "seasonality",
+        "ffa",
+        "forward-signals",
+        "history"
+      ],
+      "horizon": "1-8q",
+      "segment": [
+        "capesize"
+      ],
+      "n_followups": 2,
+      "scoring_focus": [
+        "seasonality",
+        "forward-signals",
+        "sample-limits"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Use Mendeley 2012–2019 month-of-year as labeled history, not 2026 law",
+          "Quote Xclusiv Q1 2027 FFA ~32k vs spot ~55k as a sourced forward",
+          "Refuse to convert 32k into a BDI"
+        ],
+        "must_not": [
+          "Assert September always fades X% by January",
+          "Treat Mendeley 2019 as including 2021 or 2026"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "September Cape strength usually dies by Q1, right? I want to know if I should fade this rally into year-end.",
+          "gold_tool_plan": [
+            "sql",
+            "fetch_url"
+          ],
+          "must_cite_facts": [
+            "Mendeley ci 2012–2019: Sep avg 2173, Oct 2302, Jan 1433, Feb 1009",
+            "Sample ends Jul 2019 — no 2021 spike, no 2026",
+            "Xclusiv: Q1 2027 FFA ~32k vs C5TC 54791 on 4 Sep"
+          ],
+          "failure_modes": [
+            "Yes, fade it, 5TC will be 32k",
+            "Using only 2021 or only 2016 as 'usual'"
+          ],
+          "ideal_assistant": "I will not tell you to **fade** the rally. There is a **seasonal pattern in one historical sample**, and a **forward print**, and they are not a 2026 law.\n\n**Warehouse history (Mendeley daily Capesize `ci`, 2012-08-01 to 2019-07-31).** Month-of-year averages: **Feb 1,009** (weakest), **Jan 1,433**, **Sep 2,173**, **Oct 2,302** (strongest). In *that* window, Q1 is **softer than September**, and autumn is the high season — **directionally** the folklore you stated. Limits: **no 2020–26**, includes the 2016 collapse and misses the 2021 spike (Xclusiv cites Oct 2021 C5TC **$57,374** / peak ~**$87k**). Do not scale 2012–19 means onto BCI **6,427**.\n\n**Forward market (sourced, not my fade):** Xclusiv Week 36: Sep/Oct FFAs ~**$50,000/day**, **Q1 2027 ~$32,000/day**, vs spot C5TC **$54,791** on 4 Sep. They call Q1 “unusually firm for a seasonally weak quarter” — i.e. the curve **already prices a drop from spot** and still **$32k**, not 2016 zeros.\n\nUse: (1) labeled seasonality from Mendeley, (2) FFA as the **market’s** Q1, (3) 2026-specific lists/loadings from the 2–4 week watchlist. No “sell Cape into year-end” call."
+        },
+        {
+          "turn": 2,
+          "user": "So the fair Q1 number is $32,000 then.",
+          "gold_tool_plan": [],
+          "must_cite_facts": [
+            "32k is an FFA quote as of week ended 4 Sep, not fair value",
+            "Different object from BDI"
+          ],
+          "failure_modes": [
+            "Accepting 32k as the assistant's Q1 forecast",
+            "Converting to BDI ~2000"
+          ],
+          "ideal_assistant": "**$32,000 is not a fair-value Q1 forecast from this desk.** It is **Xclusiv’s report of Q1 2027 Cape TCE FFAs** as of the week ended **4 Sep 2026**. That quote can move tomorrow; we have no curve in the warehouse to refresh it.\n\nIt is also **not a BDI**. Do not back out “BDI ≈ 2,000 in Q1” from $32k with an invented multiplier. Spot 5TC **>$58k** vs FFA **$32k** is a **steep** implied fade; whether that is “usual seasonality” or a squeeze unwinding is exactly what the 2–4 week lists/loadings watchlist is for."
+        },
+        {
+          "turn": 3,
+          "user": "UNCTAD had BDI at 930 in January 2025. Isn't that the Q1 analog?",
+          "gold_tool_plan": [
+            "sql"
+          ],
+          "must_cite_facts": [
+            "930 is Jan 2025 inside RMT figure, historical_vintage",
+            "Not a seasonal coefficient for 2027"
+          ],
+          "failure_modes": [
+            "Using 930 as the Q1 2027 analog",
+            "Averaging 930 with FFA 32k"
+          ],
+          "ideal_assistant": "No. Warehouse `claim-unctad-rmt-bdi-path-2024-25`: BDI about **930 in Jan 2025** (and **1,686 in Jun 2025**) is a **dated point on UNCTAD’s Clarksons-based figure**, vintage RMT 2025. It is **one winter** in a **weak** year, not a seasonal coefficient, and not comparable to a **$32k 5TC FFA** (index vs TCE, 2025 vs 2027).\n\nJan 2025 at 930 vs Sep 2026 at 3,584 is a **regime change**, which is why you must not naively apply “Q1 is weak” as a 75% haircut to today’s spot."
+        }
+      ]
+    },
+    {
+      "id": "eval-020",
+      "title": "User-supplied 2023 Week 36 PDF with BDI 1,186",
+      "persona": "overconfident_researcher",
+      "gap_filled": "stale_pdf_magnitude_sanity",
+      "tags": [
+        "freshness",
+        "wrong-year",
+        "user-supplied-source"
+      ],
+      "horizon": "week",
+      "segment": [
+        "bdi"
+      ],
+      "n_followups": 1,
+      "scoring_focus": [
+        "magnitude-sanity",
+        "year-mismatch",
+        "user-source"
+      ],
+      "pass_criteria": {
+        "must": [
+          "Reject BDI 1,186 as current Week 36; identify 2023 vintage (8 Sep 2023 vs 1 Sep 1,065)",
+          "Contrast with 2026 Week 36 close 3,628",
+          "State the filename Week 36 is not a year"
+        ],
+        "must_not": [
+          "Blend 1186 and 3628",
+          "Treat the 2023 PDF as the live weekly because the user asked"
+        ]
+      },
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "I found a Week 36 dry-bulk PDF where the BDI is 1,186. Why isn't that in your recap? Use it — it's the same week number.",
+          "gold_tool_plan": [
+            "web_search",
+            "rss_feed"
+          ],
+          "must_cite_facts": [
+            "Advanced Market Report Week 36 2023: BDI 1.186 on 8 Sep 2023 vs 1.065 on 1 Sep",
+            "Live 2026 Week 36 close BDI 3628 on 4 Sep 2026",
+            "Magnitude sanity: 1186 vs 3584"
+          ],
+          "failure_modes": [
+            "Adopting 1186 as current",
+            "Ignoring the PDF because the user was rude, without checking year"
+          ],
+          "ideal_assistant": "I will **not** put **BDI 1,186** in the current recap. **Week number is not the year.**\n\nThe public file that matches your print is the **2023** “Advanced Market Report Week 36” (Hellenic PDF): **BDI 1,186 on 8 Sep 2023** vs **1,065 on 1 Sep 2023** (BCI 1,289, BPI 1,489). Allied’s nearby **Week 35 2023** PDF is the same magnitude (BDI **1,065** on 1 Sep **2023**). Cover BDI ~**1,100** next to live BDI ~**3,500** is the research skill’s **wrong-year** test — even if the query says “Week 36.”\n\n**Current weekly** (Baltic Week **36 of 2026**, Friday **4 Sep 2026**): BDI **3,628**. Latest **session** (8 Sep **2026**): **3,584**. Those are the in-horizon objects.\n\nYour 2023 PDF is usable as **history** (labeled 2023 Week 36), not as “this week.”"
+        },
+        {
+          "turn": 2,
+          "user": "The filename is Week-36.pdf and Exa titled it this week. That's good enough.",
+          "gold_tool_plan": [],
+          "must_cite_facts": [
+            "Exa published_date on PDFs is often N/A",
+            "Check cover index vs live print"
+          ],
+          "failure_modes": [
+            "Deferring to Exa metadata",
+            "Averaging 1186 and 3628 as two estimates of the same week"
+          ],
+          "ideal_assistant": "Exa **titles and `Published: N/A`** are not a year check. This sweep already mixes **2023 Week 36** PDFs with **2026 Week 36** PDFs when the query is only “Week 36.” The **cover index** is the test: **1,186 cannot be 4 Sep 2026** when independent 2026 sources print **3,628**. I will not average them or let filename ISO-week win.\n\nIf you want 2023 Week 36 as a **historical analog**, say so and we will label it `historical_vintage`. It still does not replace the 2026 weekly."
+        }
+      ]
+    }
+  ]
+}

@@ -6,7 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from freight_second_brain.tools.web import WEB_TOOL_NAMES, fetch_url_text, read_rss_feed, search_web
 from freight_second_brain.warehouse.store import Warehouse
+
+WAREHOUSE_TOOL_NAMES = ("schema", "sql", "show_source")
+AGENT_TOOL_NAMES = WAREHOUSE_TOOL_NAMES + WEB_TOOL_NAMES
 
 
 @dataclass
@@ -46,19 +50,6 @@ class ToolRegistry:
             for spec in self._tools.values()
         ]
 
-    def openai_tools(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": spec.name,
-                    "description": spec.description,
-                    "parameters": spec.parameters,
-                },
-            }
-            for spec in self._tools.values()
-        ]
-
     def call(self, name: str, **kwargs: Any) -> ToolResult:
         spec = self._tools.get(name)
         if spec is None:
@@ -89,8 +80,8 @@ def register_default_tools(registry: ToolRegistry) -> None:
             name="sql",
             description=(
                 "Run a read-only SQL query against the warehouse. "
-                "Tables include observations, series, claims, claim_entities, contradictions, "
-                "claim_series, events, sources, and catalog. SELECT/WITH/DESCRIBE/SHOW/FROM only."
+                "Tables include observations, series, sources, and catalog. "
+                "SELECT/WITH/DESCRIBE/SHOW/FROM only."
             ),
             parameters={
                 "type": "object",
@@ -121,6 +112,79 @@ def register_default_tools(registry: ToolRegistry) -> None:
             category="display",
         )
     )
+    registry.register(
+        ToolSpec(
+            name="web_search",
+            description=(
+                "Search the public web via Exa for dry-bulk freight sources. "
+                "Use precise Baltic/cargo terms (BDI, Capesize, C5, iron ore), not generic 'shipping news'. "
+                "Works without EXA_API_KEY via Exa's hosted MCP free tier; set the key to lift rate limits."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query. Include a vessel class or Baltic route code.",
+                    },
+                    "num_results": {
+                        "type": "integer",
+                        "description": "Number of results to return (default 6, max 10).",
+                    },
+                },
+                "required": ["query"],
+            },
+            handler=_web_search,
+            category="web",
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="rss_feed",
+            description=(
+                "Read an RSS/Atom feed. Defaults to the Hellenic Shipping News dry-bulk market feed, "
+                "the cheapest high-recall layer for current BDI/Baltic headlines."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "Feed URL. Omit to use the Hellenic dry-bulk market feed.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max entries to return (default 12, max 20).",
+                    },
+                },
+            },
+            handler=_rss_feed,
+            category="web",
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="fetch_url",
+            description=(
+                "Fetch a chosen URL through Jina Reader and return extracted text. "
+                "Use after web_search or rss_feed, on one article or PDF at a time. "
+                "Cookie walls (BIMCO, Baltic HTML) are flagged — do not treat them as analysis."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "http(s) URL to fetch."},
+                    "max_chars": {
+                        "type": "integer",
+                        "description": "Max characters of extracted text (default 8000).",
+                    },
+                },
+                "required": ["url"],
+            },
+            handler=_fetch_url,
+            category="web",
+        )
+    )
 
 
 def _schema(warehouse: Warehouse) -> Any:
@@ -133,3 +197,15 @@ def _sql(warehouse: Warehouse, query: str, limit: int = 200) -> Any:
 
 def _show_source(warehouse: Warehouse, source_id: str, url: str | None = None, max_chars: int = 4000) -> Any:
     return warehouse.show_source(source_id, url=url, max_chars=max_chars)
+
+
+def _web_search(_warehouse: Warehouse, query: str, num_results: int = 6) -> Any:
+    return search_web(query, num_results=num_results)
+
+
+def _rss_feed(_warehouse: Warehouse, url: str | None = None, limit: int = 12) -> Any:
+    return read_rss_feed(url=url, limit=limit)
+
+
+def _fetch_url(_warehouse: Warehouse, url: str, max_chars: int = 8000) -> Any:
+    return fetch_url_text(url, max_chars=max_chars)

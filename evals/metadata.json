@@ -1,0 +1,349 @@
+{
+  "dataset_id": "freight-sb-multi-turn-eval-v0",
+  "schema_version": "0.1.0",
+  "status": "draft",
+  "task": "multi_turn_dry_bulk_research_conversation",
+  "generated_at": "2026-09-09T01:30:00+08:00",
+  "updated_at": "2026-09-09T01:45:00+08:00",
+  "round": 2,
+  "as_of": "2026-09-09",
+  "as_of_weekday": "Wednesday",
+  "iso_week": 37,
+  "live_baltic_week": {
+    "label": "Week 36",
+    "data_as_of": "2026-09-04",
+    "note": "Tuesday 8 Sep and Wednesday 9 Sep are ISO week 37; the latest published Baltic weekly is still Week 36 (Friday 4 Sep close) until the next weekly posts."
+  },
+  "latest_session_print": {
+    "bdi": 3584,
+    "bci": 6313,
+    "bpi": 2414,
+    "bsi": 1693,
+    "data_as_of": "2026-09-08",
+    "source": "Trading Economics recap via TradingView; Hellenic RSS composite 3584"
+  },
+  "generator": {
+    "harness": "Cursor agent (freight_second_brain workspace)",
+    "model_label": "Cursor Grok 4.6",
+    "author_role": "gold-label writer using runtime tools, not a scored model run",
+    "repo_version": "0.1.0",
+    "git_commit": "3728ee17a87def038397d6598abe02fe931e8703",
+    "git_note": "HEAD at generation; working tree also had uncommitted research-desk and web-tool work"
+  },
+  "method": {
+    "skills_followed": [
+      "freight-runtime-tools",
+      "dry-bulk-freight-research",
+      "agent-reach (Exa/Jina/RSS backends; web calls went through freight-sb tools)"
+    ],
+    "warehouse_tools": {
+      "interface": "MCP project-0-freight_second_brain-freight-second-brain",
+      "names": ["schema", "sql", "show_source"]
+    },
+    "web_tools": {
+      "interface": "uv run freight-sb tools",
+      "names": ["web_search", "rss_feed", "fetch_url"],
+      "backends": {
+        "web_search": "exa_mcp",
+        "rss_feed": "Hellenic dry-bulk category RSS",
+        "fetch_url": "jina"
+      }
+    },
+    "rules": [
+      "Pin as_of and horizon before search",
+      "Do not invent numerical forecasts",
+      "Do not read parquet/JSONL directly; use schema/sql/show_source",
+      "Dedup syndicated Baltic weekly copy",
+      "Keep contradictions; do not average 5TC objects",
+      "Match source data-as-of to the question horizon"
+    ]
+  },
+  "warehouse_snapshot": {
+    "queried_at": "2026-09-09",
+    "tables": {
+      "catalog": 18,
+      "series": 923,
+      "observations": 109291,
+      "claims": 25,
+      "events": 20,
+      "contradictions": 2,
+      "claim_series": 100,
+      "claim_entities": 55,
+      "sources": 48
+    },
+    "key_series": [
+      {
+        "series_id": "TE.BDI.LAST",
+        "value": 3575.0,
+        "observed_at": "2026-09-07",
+        "retrieved_time": "2026-09-07T15:34:33Z",
+        "note": "Single last-value snapshot; one session behind live 3584"
+      },
+      {
+        "series_id": "WB_PINK.iron_ore_cfr_spot",
+        "value": 96.3,
+        "end": "2026-08-01",
+        "unit": "USD/dmtu",
+        "avg_2024": 109.41,
+        "avg_2025": 100.18
+      },
+      {
+        "series_id": "WB_PINK.coal_australian",
+        "value": 135.2,
+        "end": "2026-08-01"
+      },
+      {
+        "series_id": "WB_PINK.wheat_us_hrw",
+        "value": 330.0,
+        "end": "2026-08-01"
+      },
+      {
+        "series_id": "FAO_FPI.cereals",
+        "value": 116.3,
+        "end": "2026-08-01"
+      },
+      {
+        "series_id": "NOAA.ONI.ANOM",
+        "value": 1.8,
+        "end": "2026-06-01",
+        "recent": [
+          ["2026-06", 1.8],
+          ["2026-05", 1.39],
+          ["2026-04", 0.95]
+        ]
+      },
+      {
+        "series_id": "USDA_PSD.wheat.russia.exports",
+        "value": 46000,
+        "unit": "1000 MT",
+        "end": "2026-08-01"
+      },
+      {
+        "series_id": "USDA_PSD.wheat.ukraine.exports",
+        "value": 13500,
+        "unit": "1000 MT",
+        "end": "2026-08-01"
+      },
+      {
+        "series_id": "COMTRADE.AUS_EXP_IRON_ORE.net_kg",
+        "value_mt": 902.6,
+        "end": "2024-01-01",
+        "note": "902604766700 kg / 1e9"
+      },
+      {
+        "series_id": "COMTRADE.BRA_EXP_IRON_ORE.net_kg",
+        "value_mt": 384.8,
+        "end": "2024-01-01"
+      },
+      {
+        "series_id": "YAHOO.BDRY",
+        "value": 16.56,
+        "end": "2026-08-31"
+      }
+    ],
+    "contradiction": {
+      "id": "dir-nearterm-cape-vs-bdi-2026-09",
+      "type": "direction",
+      "status": "unresolved",
+      "summary": "Capesize weekly (to 6 Sep) bullish vs BDI print down 53 pts on 7 Sep",
+      "claim_ids": [
+        "claim-hellenic-https_www_hellenicshippingnews_com_p_1146947",
+        "claim-hellenic-https_www_hellenicshippingnews_com_p_1147040"
+      ]
+    },
+    "unctad_claims": {
+      "bdi_2024_average": 1755,
+      "cape_1y_tc_2024_avg_usd": 22953,
+      "outlook_vintage": "UNCTAD RMT 2025 (covers 2024 and H1 2025); historical_vintage for Sep 2026 spot"
+    }
+  },
+  "web_snapshot": {
+    "rss": {
+      "url": "https://www.hellenicshippingnews.com/category/shipping-news/dry-bulk-market/feed/",
+      "latest_headline": "Baltic Dry Index climbs to 3584 up 9 points",
+      "published": "2026-09-08T12:00:56Z"
+    },
+    "independence_groups": [
+      {
+        "id": "baltic-weekly-week-36-2026",
+        "members": [
+          "https://www.hellenicshippingnews.com/dry-bulk-market-capesizes-showing-more-strength/",
+          "https://www.thedcn.com.au/news/baltic-exchange-weekly-report-4-september-2026",
+          "https://klse.i3investor.com/web/blog/detail/ceomorningbrief/2026-09-08-story-h502376737-Baltic_Exchange_Shipping_Updates_Sept_4_2026"
+        ],
+        "note": "Same Capesize/Panamax weekly paragraph"
+      },
+      {
+        "id": "bimco-smoo-july-2026",
+        "members": [
+          "https://cyprusshippingnews.com/2026/07/31/bimco-dry-bulk-shipping-market-overview-outlook-2/",
+          "https://www.hellenicshippingnews.com/dry-bulk-shipping-el-nino-to-act-as-a-new-demand-shock-bimco-says/",
+          "https://www.bimco.org/news-insights/market-analysis/shipping-market-overview-and-outlook/2026/20260730-smoo-bulk/"
+        ],
+        "note": "bimco.org HTML is a cookie wall; use Cyprus/Hellenic reprints"
+      }
+    ],
+    "key_urls_fetched": [
+      "https://www.hellenicshippingnews.com/wp-content/uploads/2026/09/xclusiv-2026_09_07.pdf",
+      "https://www.hellenicshippingnews.com/wp-content/uploads/2026/09/Market-Report-Week-36.pdf",
+      "https://www.bigmint.co/insights/detail/iron-ore-freight-rates-surge-w-o-w-capesize-hits-multi-year-high-786562",
+      "https://cyprusshippingnews.com/2026/07/31/bimco-dry-bulk-shipping-market-overview-outlook-2/",
+      "https://www.mysteel.net/analysis/5139949-weekly-aust-brazilian-iron-ore-shipments-drop-6-wow",
+      "https://splash247.com/chinas-vloc-conveyor-belt-threatens-to-dilute-simandou-cape-upside/",
+      "https://www.breakwaveadvisors.com/insights/2026/4/29/the-simandou-effect-the-story-so-far",
+      "https://www.hellenicshippingnews.com/black-sea-disruption-redirects-russian-wheat-towards-the-baltic/",
+      "https://www.tradingview.com/news/te_news:582070:0-baltic-dry-index-bounces-back/"
+    ],
+    "jina_chrome_failures": [
+      "Hellenic daily HTML (3584, Monday recap, iron-ore price note) returned nav chrome; RSS summaries + TradingView/Baird Exa highlights used instead"
+    ]
+  },
+  "case_index": [
+    {
+      "id": "eval-001",
+      "n_followups": 2,
+      "horizon": "session",
+      "theme": "Live BDI vs lagged warehouse last print"
+    },
+    {
+      "id": "eval-002",
+      "n_followups": 3,
+      "horizon": "week",
+      "theme": "Why Capesize rallied; C5/C3; Mysteel vs Xclusiv Brazil %; no invented next week"
+    },
+    {
+      "id": "eval-003",
+      "n_followups": 2,
+      "horizon": "week",
+      "theme": "Cape vs Panamax; warehouse direction contradiction"
+    },
+    {
+      "id": "eval-004",
+      "n_followups": 1,
+      "horizon": "history",
+      "theme": "UNCTAD 2024 averages vs Sep 2026 spot; do not reuse 2025 outlook as now"
+    },
+    {
+      "id": "eval-005",
+      "n_followups": 3,
+      "horizon": "1-8q",
+      "theme": "BIMCO July 2026 SMOO vs spot; El Niño/ONI; SoH scenarios"
+    },
+    {
+      "id": "eval-006",
+      "n_followups": 2,
+      "horizon": "1-2m",
+      "theme": "Black Sea grain overlay vs Cape iron-ore rally; USDA vs AIS loadings"
+    },
+    {
+      "id": "eval-007",
+      "n_followups": 4,
+      "horizon": "week",
+      "theme": "Iron-ore price vs freight disconnect; Pink Sheet; C5 vs C3"
+    },
+    {
+      "id": "eval-008",
+      "n_followups": 2,
+      "horizon": "structural",
+      "theme": "Simandou tonne-miles vs VLOC conveyor; Guinea bauxite"
+    },
+    {
+      "id": "eval-009",
+      "n_followups": 1,
+      "horizon": "1-2m",
+      "theme": "Refuse invented end-September BDI; quote FFAs only as sourced"
+    },
+    {
+      "id": "eval-010",
+      "n_followups": 0,
+      "horizon": "structural",
+      "theme": "Warehouse coverage and gaps for forecasting"
+    },
+    {
+      "id": "eval-011",
+      "n_followups": 1,
+      "horizon": "session",
+      "theme": "Newcomer: what BDI is; is 3584 high? Keep it short"
+    },
+    {
+      "id": "eval-012",
+      "n_followups": 2,
+      "horizon": "session",
+      "theme": "Off-domain SCFI, Amazon parcel, tanker Hormuz redirect"
+    },
+    {
+      "id": "eval-013",
+      "n_followups": 2,
+      "horizon": "1-2m",
+      "theme": "2–4 week Cape leading-indicator watchlist; warehouse cannot serve it"
+    },
+    {
+      "id": "eval-014",
+      "n_followups": 2,
+      "horizon": "week",
+      "theme": "India-bound coal Panamax/Supramax vs BDI headline"
+    },
+    {
+      "id": "eval-015",
+      "n_followups": 1,
+      "horizon": "session",
+      "theme": "Skeptical PM: warehouse 3575 means the market is down"
+    },
+    {
+      "id": "eval-016",
+      "n_followups": 1,
+      "horizon": "week",
+      "theme": "Handysize owner: BHSI/7TC; BDI excludes Handy since 2018"
+    },
+    {
+      "id": "eval-017",
+      "n_followups": 1,
+      "horizon": "session",
+      "theme": "Refuse BDRY buy advice; ETF proxy lagged to 31 Aug"
+    },
+    {
+      "id": "eval-018",
+      "n_followups": 1,
+      "horizon": "week",
+      "theme": "Ambiguous freight outlook then USG 63k Supramax grains"
+    },
+    {
+      "id": "eval-019",
+      "n_followups": 2,
+      "horizon": "1-8q",
+      "theme": "Mendeley Sep vs Q1 seasonality; FFA 32k is not fair value"
+    },
+    {
+      "id": "eval-020",
+      "n_followups": 1,
+      "horizon": "week",
+      "theme": "User Week 36 PDF with BDI 1186 is 2023, not 2026"
+    }
+  ],
+  "n_cases": 20,
+  "n_opening_questions": 20,
+  "n_followup_questions": 34,
+  "n_user_turns": 54,
+  "followup_distribution": {"0": 1, "1": 8, "2": 8, "3": 2, "4": 1},
+  "limitations": [
+    "Gold answers are tied to 2026-09-09 evidence; they will go stale.",
+    "No licensed Baltic time series in the warehouse; session prints are secondary (Hellenic, TE, Reuters/Baird).",
+    "BIMCO.org and some Mysteel/TradingView bodies are gated; reprints and public excerpts only.",
+    "Star Asia Week 36 PDF mixes tanker/Hormuz narrative with dry bulk; only the dry-bulk page is used.",
+    "Xclusiv C5TC ($54,791 on 4 Sep) is not the same object as Baltic BCI 182 5TC (above $58,000).",
+    "Round 2 golds reuse the 9 Sep 2026 as_of; BigMint India-coal and 2023 Week-36 PDFs were fetched in that same session.",
+    "No case has 5 follow-ups; Handy/coal/simple/off-domain were the higher-priority gaps."
+  ],
+  "round2_web": {
+    "baltic_weights": "https://www.balticexchange.com/en/data-services/market-information0/indices.html",
+    "india_coal": "https://www.bigmint.co/insights/detail/india-bound-coal-freight-firms-south-africa-india-rates-hit-over-1-week-high-786659",
+    "india_stocks": "https://www.bigmint.co/insights/detail/india-portside-thermal-coal-stocks-fall-w-o-w-amid-weak-arrivals-679054",
+    "week36_2023_bdi_1186": "https://www.hellenicshippingnews.com/wp-content/uploads/2023/09/ADVANCED-MARKET-REPORT-WEEK-36.pdf",
+    "mendeley_ci_month_avgs_2012_2019": {
+      "01": 1433.1,
+      "02": 1008.6,
+      "09": 2172.8,
+      "10": 2301.6
+    }
+  }
+}

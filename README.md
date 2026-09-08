@@ -1,59 +1,42 @@
 # Freight Second Brain
 
 Agentic research system for **dry-bulk freight rates**. A provenance-aware public-data
-warehouse is built by **code ingest plus an agent harness**. Runtime query tools only
-read that warehouse. The system does not invent numerical forecasts.
+warehouse is built by **code ingest**. Runtime SQL tools read that warehouse; news and
+analysis come from **live web tools**. The system does not invent numerical forecasts.
 
-## ETL is code + agent harness
+## ETL is code ingest
 
-`uv run freight-sb etl` is **not** the full build. It is the deterministic half:
+`uv run freight-sb etl` fetches public sources, stores immutable raw snapshots, parses
+**tabular** series into `observations`, writes `sources` + `catalog`, and rebuilds DuckDB.
 
-- fetch public sources
-- store immutable raw snapshots
-- parse **tabular** series into `observations`
-- land unlabeled RSS headlines as `events`
-- write `sources` + `catalog` and rebuild DuckDB
-
-**Semantic work is not done in Python.** Polarity, claim extraction, entity
-resolution, duplicate grouping, contradiction detection, and claim-to-series
-links are agent skills under `.cursor/skills/`. Run them in a Cursor agent
-(or any harness that loads those skills) after code ingest.
+News, prints, and outlook are **not** stored as claims or events. The deployable agent
+uses `rss_feed` / `web_search` / `fetch_url` at question time.
 
 | Stage | Who | What |
 |---|---|---|
 | 1. Ingest | Code | `uv run freight-sb etl` |
-| 2. Extract claims | Agent | skill `extract-claims` |
-| 3. Resolve entities | Agent | skill `resolve-entities` |
-| 4. Duplicates | Agent | skill `find-duplicates` |
-| 5. Contradictions | Agent | skill `find-contradictions` |
-| 6. Link to series | Agent | skill `link-claims-to-series` |
-| 7. Rebuild SQL | Code | `uv run freight-sb rebuild-sql` |
+| 2. Rebuild SQL | Code | `uv run freight-sb rebuild-sql` (also runs at end of etl) |
 
-Orchestration: skill `freight-etl`. Agent writes go through schema validation:
+Orchestration: skill `freight-etl`.
 
-```bash
-uv run freight-sb write claims --file /tmp/claims.json
-```
-
-A full ingest **clears** `claim_entities`, `contradictions`, and `claim_series`, so
-the semantic skills must be re-run after every `etl`.
-
-Do not add keyword matchers for polarity, entities, or duplicates back into
-extractors. Series-name maps (`infer_commodity` on Pink Sheet column headers) stay
-in code because they are identifiers, not prose.
+Do not add keyword matchers for polarity, entities, or duplicates into extractors.
+Series-name maps (`infer_commodity` on Pink Sheet column headers) stay in code because
+they are identifiers, not prose.
 
 ## Layout
 
 ```
 .cursor/mcp.json    Cursor harness: same ToolRegistry over MCP
-.cursor/skills/     agent harness for semantic ETL
+.cursor/skills/     agent skills (ETL, live research, eval judge)
 src/freight_second_brain/
   catalog/          source register and canonical entity ids
   etl/              fetch, landing zone, tabular parsers
   warehouse/        parquet + JSONL + read-only DuckDB
   qualitative/      date-based freshness only
-  tools/            runtime: schema, sql, show_source
-  agent/            query-time system prompt
+  tools/            runtime: schema, sql, show_source, web_search, rss_feed, fetch_url
+  agent/            LangChain/OpenRouter research desk (warehouse SQL + live web)
+  ui/               FastAPI research desk (SSE chat)
+web/                React research-desk frontend
 data/               raw snapshots, warehouse, run manifests
 ```
 
@@ -93,18 +76,17 @@ Default extractors (verified public / fallback):
 | `noaa_enso` | Oceanic Niño Index |
 | `data360_maritime` | UNCTAD port/fleet indicators |
 | `eia_coal` | Filtered EIA coal production/trade/price series |
-| `hellenic_rss` | Raw feed + unlabeled headlines (claims come from the agent) |
+| `hellenic_rss` | Raw feed snapshot (`show_source`); live news is `rss_feed` |
 | `qualitative_pages` | Baltic / BIMCO HTML and UNCTAD RMT PDF snapshots |
 
 FRED and IMF extractors are catalogued but disabled by default (timeouts / 403 from this environment). Licensed Baltic, AIS, and broker research stay in the catalog as non-default sources.
 
 A code run is `complete` only when every extractor succeeds. Inspect
-`data/metadata/latest.json` and `data/metadata/quality_report.json` before the
-semantic pass.
+`data/metadata/latest.json` and `data/metadata/quality_report.json`.
 
 ## Runtime query tools
 
-After the harness has written semantic tables:
+After ingest:
 
 ```bash
 uv run freight-sb schema
@@ -112,12 +94,8 @@ uv run freight-sb sql "SELECT series_id, observed_at, value FROM observations WH
 uv run freight-sb tools show_source --json '{"source_id":"mendeley_bdi"}'
 ```
 
-Tables: `observations`, `series`, `claims`, `claim_entities`, `contradictions`,
-`claim_series`, `events`, `sources`, `catalog`. `sql` is read-only (`SELECT` /
+Tables: `observations`, `series`, `sources`, `catalog`. `sql` is read-only (`SELECT` /
 `WITH` / `DESCRIBE` / `SHOW` / `EXPLAIN` / `SUMMARIZE` / `FROM`).
-
-Wire an LLM by pointing it at `AgentRuntime.system_prompt()` and
-`ToolRegistry.openai_tools()`. Without an API key the query tools still run locally.
 
 The same registry is served to this Cursor workspace over MCP
 (`.cursor/mcp.json` → `uv run freight-sb mcp`). After adding a tool in
@@ -127,11 +105,39 @@ is not connected, `uv run freight-sb tools` is the same surface:
 ```bash
 uv run freight-sb tools
 uv run freight-sb tools sql --json '{"query":"SELECT 1 AS n","limit":5}'
+uv run freight-sb tools rss_feed --json '{"limit":5}'
 ```
+
+## Deployable research agent
+
+The same ToolRegistry as MCP (`schema`, `sql`, `show_source`, `web_search`,
+`rss_feed`, `fetch_url`) is wrapped in a LangChain tool-calling agent with
+OpenRouter:
+
+```bash
+uv run freight-sb agent --check
+uv run freight-sb agent "What is the latest Baltic Dry Index print this week?"
+```
+
+Set `OPENROUTER_API_KEY`. `web_search` uses Exa's hosted MCP free tier without
+`EXA_API_KEY`; set the key to lift rate limits. `rss_feed` and `fetch_url` need
+no Exa key. Override the model with `OPENROUTER_MODEL` or `--model`.
+
+## Research desk UI
+
+Multi-turn chat with streamed tool calls, source cards, tables, and charts:
+
+```bash
+cd web && npm install && npm run build
+uv run freight-sb ui
+```
+
+Opens at `http://127.0.0.1:8787`. During frontend development, `npm run dev` in
+`web/` proxies `/api` to that server.
 
 ## Rules the agents must keep
 
-- Cite claim IDs, URLs, freshness and provenance.
+- Cite URLs, freshness and provenance.
 - Do not count syndicated copies as independent evidence.
 - Preserve contradictions; do not average them.
 - Numerical forecasts come from versioned models, not free-form generation.
