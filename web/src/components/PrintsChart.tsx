@@ -1,6 +1,8 @@
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -44,17 +46,19 @@ export default function PrintsChart({ artifact, fresh = false }: { artifact: Art
     x_label?: string;
     y_label?: string;
     series?: Series[];
+    variant?: string;
   };
   const seriesList = (payload.series ?? []).filter((item) => (item.points ?? []).length > 0);
   const { rows, keys } = mergeSeries(seriesList);
   if (!rows.length || !keys.length) return null;
 
-  const multi = keys.length > 1;
-  const Chart = multi ? LineChart : AreaChart;
+  const variant = payload.variant === "bar" || payload.variant === "area" || payload.variant === "line" ? payload.variant : keys.length > 1 ? "line" : "area";
+  const Chart = variant === "bar" ? BarChart : variant === "line" || keys.length > 1 ? LineChart : AreaChart;
+  const multi = keys.length > 1 || variant !== "area";
 
   return (
     <section className={`chart-wrap${fresh ? " fresh" : ""}`}>
-      <h2>{artifact.title}</h2>
+      {artifact.title ? <h2>{artifact.title}</h2> : null}
       {artifact.subtitle ? <div className="caption">{artifact.subtitle}</div> : null}
       <div style={{ height: multi ? 300 : 280 }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -86,35 +90,41 @@ export default function PrintsChart({ artifact, fresh = false }: { artifact: Art
               contentStyle={{ background: "#10141c", border: "1px solid #252c3a", color: "#e6edf7" }}
               formatter={(value, name) => [Number(value).toLocaleString(), String(name)]}
             />
-            {multi ? <Legend wrapperStyle={{ color: "#8b97ab", fontSize: 11 }} /> : null}
-            {multi
+            {keys.length > 1 || variant === "bar" ? (
+              <Legend wrapperStyle={{ color: "#8b97ab", fontSize: 11 }} />
+            ) : null}
+            {variant === "bar"
               ? keys.map((item) => (
-                  <Line
-                    key={item.key}
-                    type="monotone"
-                    dataKey={item.key}
-                    name={item.name}
-                    stroke={item.color}
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: item.color }}
-                    activeDot={{ r: 5 }}
-                    connectNulls
-                  />
+                  <Bar key={item.key} dataKey={item.key} name={item.name} fill={item.color} radius={[2, 2, 0, 0]} />
                 ))
-              : keys.map((item) => (
-                  <Area
-                    key={item.key}
-                    type="monotone"
-                    dataKey={item.key}
-                    name={item.name}
-                    stroke={item.color}
-                    fill={`url(#fill-${item.key})`}
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: item.color }}
-                    activeDot={{ r: 5 }}
-                    connectNulls
-                  />
-                ))}
+              : variant === "line" || keys.length > 1
+                ? keys.map((item) => (
+                    <Line
+                      key={item.key}
+                      type="monotone"
+                      dataKey={item.key}
+                      name={item.name}
+                      stroke={item.color}
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: item.color }}
+                      activeDot={{ r: 5 }}
+                      connectNulls
+                    />
+                  ))
+                : keys.map((item) => (
+                    <Area
+                      key={item.key}
+                      type="monotone"
+                      dataKey={item.key}
+                      name={item.name}
+                      stroke={item.color}
+                      fill={`url(#fill-${item.key})`}
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: item.color }}
+                      activeDot={{ r: 5 }}
+                      connectNulls
+                    />
+                  ))}
           </Chart>
         </ResponsiveContainer>
       </div>

@@ -21,43 +21,24 @@ export default function SourceCard({
     print?: number | null;
     pretty_host?: string;
     pretty_path?: string;
-    publisher?: string;
-    role?: string;
-    hierarchy?: string;
-    freshness?: string;
   };
   const superseded = artifact.status === "superseded";
   const href = payload.url;
   const tags = tagsOf(artifact).filter((tag) => tag.dimension !== "access" && tag.dimension !== "channel");
+  const print = payload.print ? payload.print.toLocaleString() : null;
   return (
     <article
       className={`card${superseded ? " superseded" : ""}${fresh ? " fresh" : ""}${compact ? " compact" : ""}`}
     >
-      <div className="meta">
-        <span className={`badge${payload.hierarchy === "primary" ? "" : " old"}`}>
-          {labelFor(payload.role, payload.hierarchy)}
-        </span>
-        <span className="mono">{payload.print ? payload.print.toLocaleString() : "—"}</span>
-      </div>
-      <h3>{artifact.title}</h3>
-      <p className="snip">{payload.one_liner || payload.snippet || ""}</p>
       <TagPills tags={tags} selected={selected} onToggle={onToggleTag} />
-      <PrettyLink href={href} host={payload.pretty_host} path={payload.pretty_path} />
-      <div className="meta">
-        <span>{payload.publisher || artifact.subtitle || ""}</span>
-        <span>{payload.freshness || ""}</span>
+      <div className="card-head">
+        <h3>{artifact.title}</h3>
+        {print ? <span className="mono">{print}</span> : null}
       </div>
+      <p className="snip">{payload.one_liner || payload.snippet || ""}</p>
+      <PrettyLink href={href} host={payload.pretty_host} path={payload.pretty_path} />
     </article>
   );
-}
-
-function labelFor(role?: string, hierarchy?: string) {
-  if (hierarchy === "duplicate") return "Reprint";
-  if (role === "overlay") return "Overlay";
-  if (role === "primary") return "Primary";
-  if (role === "reprint") return "Secondary";
-  if (role === "tertiary") return "Tertiary";
-  return "Source";
 }
 
 export function PrettyLink({

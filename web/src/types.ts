@@ -1,4 +1,4 @@
-export type ArtifactKind = "source_card" | "table" | "chart";
+export type ArtifactKind = "source_card" | "table" | "chart" | "report";
 export type ArtifactStatus = "active" | "superseded";
 
 export type Artifact = {
@@ -37,7 +37,11 @@ export type DeskEvent = {
 };
 
 export type BoardDisplay = {
-  showTable: boolean;
-  showChart: boolean;
+  showReport: boolean;
   turn: number;
+};
+
+export type ReportBlock = {
+  type: string;
+  [key: string]: unknown;
 };

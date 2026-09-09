@@ -53,7 +53,7 @@ Never mix a lagged annual vintage with a session print unless both are labeled a
 
 Use Exa, then RSS, then Jina on **chosen URLs**. Do not start from `"shipping news"` or `"freight rates"`.
 
-On the deployable agent these are ToolRegistry tools (`web_search`, `rss_feed`, `fetch_url`) — same backends as below. That agent also has warehouse `schema` / `sql` / `show_source`. CLI: `uv run freight-sb agent`.
+On the deployable agent these are ToolRegistry tools (`web_search`, `rss_feed`, `fetch_url`, `press_catalog`, `press_fetch`) — same backends as below. That agent has **no** warehouse `schema` / `sql` / `show_source`. CLI: `uv run freight-sb agent`. The desk UI adds `present_report` for the right-hand generative report.
 
 For a **current-state** pass:
 

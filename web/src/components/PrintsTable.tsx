@@ -29,7 +29,7 @@ export default function PrintsTable({ artifact, fresh = false }: { artifact: Art
 
   return (
     <section className={`table-wrap${fresh ? " fresh" : ""}`}>
-      <h2>{artifact.title}</h2>
+      {artifact.title ? <h2>{artifact.title}</h2> : null}
       {artifact.subtitle ? <div className="caption">{artifact.subtitle}</div> : null}
       <table className="data">
         <thead>

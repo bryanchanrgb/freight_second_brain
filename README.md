@@ -34,7 +34,7 @@ src/freight_second_brain/
   warehouse/        parquet + JSONL + read-only DuckDB
   qualitative/      date-based freshness only
   tools/            runtime: schema, sql, show_source, web_search, rss_feed, fetch_url
-  agent/            LangChain/OpenRouter research desk (warehouse SQL + live web)
+  agent/            LangChain/OpenRouter research desk (live web; generative report UI)
   ui/               FastAPI research desk (SSE chat)
 web/                React research-desk frontend
 data/               raw snapshots, warehouse, run manifests
@@ -110,9 +110,9 @@ uv run freight-sb tools rss_feed --json '{"limit":5}'
 
 ## Deployable research agent
 
-The same ToolRegistry as MCP (`schema`, `sql`, `show_source`, `web_search`,
-`rss_feed`, `fetch_url`) is wrapped in a LangChain tool-calling agent with
-OpenRouter:
+The LangChain agent (`freight-sb agent` and the desk UI) binds live web tools only
+(`web_search`, `rss_feed`, `press_catalog`, `press_fetch`, `fetch_url`). Warehouse
+`schema` / `sql` / `show_source` stay on MCP and `freight-sb tools` for this harness.
 
 ```bash
 uv run freight-sb agent --check
@@ -125,7 +125,7 @@ no Exa key. Override the model with `OPENROUTER_MODEL` or `--model`.
 
 ## Research desk UI
 
-Multi-turn chat with streamed tool calls, source cards, tables, and charts:
+Multi-turn chat plus a right-hand generative report (markdown, tables, charts, citations):
 
 ```bash
 cd web && npm install && npm run build

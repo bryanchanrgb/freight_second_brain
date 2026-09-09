@@ -77,6 +77,10 @@ def _publisher(host: str, title: str, url: str) -> str:
         return "Broker PDF"
     if "hellenicshippingnews" in host:
         return "Hellenic Shipping News"
+    if "shippingtelegraph" in host:
+        return "Shipping Telegraph"
+    if "gcaptain" in host:
+        return "gCaptain"
     if "thedcn" in host:
         return "Daily Cargo News"
     return host.split(".")[0].replace("-", " ").title() or "Web"

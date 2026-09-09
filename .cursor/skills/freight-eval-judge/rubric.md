@@ -107,8 +107,8 @@ No invented forecasts, advice, or papered gaps.
 | User asked | Expected layer |
 |---|---|
 | Live BDI / this week / RSS | `rss_feed` and/or `web_search` / `fetch_url` |
-| What does the warehouse / SQL / Pink Sheet / ONI hold | `schema` / `sql` / `show_source` |
-| Both (eval-001 turn 3, eval-013 turn 3) | Both; distinguish vintages |
+| What does the warehouse / SQL / Pink Sheet / ONI hold | Gold used `schema` / `sql` / `show_source`. The deployable agent is web-only: do not fail for skipping SQL; cap `honesty` if it invents warehouse prints. |
+| Both (eval-001 turn 3, eval-013 turn 3) | Live web for session prints; warehouse gold is a dated vintage — the candidate may only have the web side |
 
 Skipping the expected layer → cap `freshness` and `honesty` at 1 unless a hard fail applies.
 

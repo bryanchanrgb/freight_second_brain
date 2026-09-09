@@ -1,4 +1,4 @@
-"""Structured desk objects: source cards, tables, charts, and supersession."""
+"""Structured desk objects: generative reports, plus leftover card/table helpers."""
 
 from __future__ import annotations
 
@@ -7,11 +7,27 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-Kind = Literal["source_card", "table", "chart"]
+Kind = Literal["source_card", "table", "chart", "report"]
 Status = Literal["active", "superseded"]
 
 PRINTS_TABLE_ID = "table-prints"
 PRINTS_CHART_ID = "chart-bdi"
+REPORT_ID = "report-main"
+MAX_REPORT_BLOCKS = 80
+MAX_REPORT_DEPTH = 3
+REPORT_BLOCK_TYPES = (
+    "markdown",
+    "heading",
+    "callout",
+    "kpis",
+    "table",
+    "chart",
+    "citations",
+    "expand",
+    "quote",
+    "divider",
+    "diagram",
+)
 
 _BDI_VALUE_RE = re.compile(
     r"(?:baltic dry index|\bbdi\b).{0,48}?(?:climbed|rose|fell|fell by|decreased|increased|reaching|reached|to|at|up|down)\s+(?:[\d.]+%\s+to\s+)?(\d{1,2}[, ]?\d{3})",
@@ -212,7 +228,7 @@ def materialize_from_tool(name: str, data: Any) -> tuple[list[dict[str, Any]], l
                             "url": hit.get("url"),
                         }
                     )
-    elif name == "rss_feed":
+    elif name in ("rss_feed", "press_fetch"):
         for entry in data.get("entries") or []:
             card = source_card_from_web_hit(
                 {
@@ -222,7 +238,7 @@ def materialize_from_tool(name: str, data: Any) -> tuple[list[dict[str, Any]], l
                     "summary": entry.get("summary"),
                     "highlights": [entry.get("summary")] if entry.get("summary") else [],
                 },
-                tool="rss_feed",
+                tool=name,
             )
             if card:
                 artifacts.append(card)
@@ -253,3 +269,228 @@ def materialize_from_tool(name: str, data: Any) -> tuple[list[dict[str, Any]], l
                     }
                 )
     return artifacts, points
+
+
+def _as_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if value is None:
+        return []
+    return [value]
+
+
+def _as_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _normalize_columns(raw: Any) -> list[dict[str, str]]:
+    columns: list[dict[str, str]] = []
+    for item in _as_list(raw):
+        if isinstance(item, str) and item.strip():
+            key = item.strip()
+            columns.append({"key": key, "label": key})
+            continue
+        if not isinstance(item, dict):
+            continue
+        key = _as_text(item.get("key") or item.get("id") or item.get("label"))
+        if not key:
+            continue
+        columns.append({"key": key, "label": _as_text(item.get("label") or key)})
+    return columns
+
+
+def _normalize_chart_series(raw: Any) -> list[dict[str, Any]]:
+    series: list[dict[str, Any]] = []
+    for item in _as_list(raw):
+        if not isinstance(item, dict):
+            continue
+        name = _as_text(item.get("name") or item.get("label") or f"Series {len(series) + 1}")
+        points: list[dict[str, Any]] = []
+        for point in _as_list(item.get("points") or item.get("data")):
+            if isinstance(point, dict) and point.get("x") is not None and point.get("y") is not None:
+                try:
+                    y = float(point["y"])
+                except (TypeError, ValueError):
+                    continue
+                points.append({"x": point["x"], "y": y})
+            elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                try:
+                    y = float(point[1])
+                except (TypeError, ValueError):
+                    continue
+                points.append({"x": point[0], "y": y})
+        if points:
+            series.append({"name": name, "points": points})
+    return series
+
+
+def normalize_report_blocks(blocks: Any, *, depth: int = 0) -> list[dict[str, Any]]:
+    """Coerce an LLM block list into a bounded, renderable report payload."""
+    if depth > MAX_REPORT_DEPTH:
+        return []
+    if isinstance(blocks, dict):
+        blocks = blocks.get("blocks") or blocks.get("sections") or []
+    out: list[dict[str, Any]] = []
+    for raw in _as_list(blocks):
+        if len(out) >= MAX_REPORT_BLOCKS:
+            break
+        if isinstance(raw, str) and raw.strip():
+            out.append({"type": "markdown", "text": raw.strip()})
+            continue
+        if not isinstance(raw, dict):
+            continue
+        kind = _as_text(raw.get("type") or raw.get("kind")).lower() or "markdown"
+        if kind not in REPORT_BLOCK_TYPES:
+            text = _as_text(raw.get("text") or raw.get("markdown") or raw.get("content"))
+            if text:
+                out.append({"type": "markdown", "text": text})
+            continue
+        if kind == "divider":
+            out.append({"type": "divider"})
+            continue
+        if kind == "heading":
+            try:
+                level = int(raw.get("level") or 2)
+            except (TypeError, ValueError):
+                level = 2
+            text = _as_text(raw.get("text") or raw.get("title"))
+            if text:
+                out.append({"type": "heading", "text": text, "level": min(3, max(1, level))})
+            continue
+        if kind == "markdown":
+            text = _as_text(raw.get("text") or raw.get("markdown") or raw.get("content"))
+            if text:
+                out.append({"type": "markdown", "text": text})
+            continue
+        if kind == "callout":
+            text = _as_text(raw.get("text") or raw.get("body") or raw.get("content"))
+            if not text:
+                continue
+            tone = _as_text(raw.get("tone") or raw.get("kind")).lower() or "info"
+            if tone not in {"info", "note", "warn", "risk"}:
+                tone = "info"
+            block: dict[str, Any] = {"type": "callout", "tone": tone, "text": text}
+            title = _as_text(raw.get("title"))
+            if title:
+                block["title"] = title
+            out.append(block)
+            continue
+        if kind == "quote":
+            text = _as_text(raw.get("text") or raw.get("body"))
+            if not text:
+                continue
+            block = {"type": "quote", "text": text}
+            attribution = _as_text(raw.get("attribution") or raw.get("cite") or raw.get("source"))
+            if attribution:
+                block["attribution"] = attribution
+            out.append(block)
+            continue
+        if kind == "kpis":
+            items: list[dict[str, str]] = []
+            for item in _as_list(raw.get("items") or raw.get("kpis")):
+                if not isinstance(item, dict):
+                    continue
+                label = _as_text(item.get("label") or item.get("name"))
+                value = _as_text(item.get("value"))
+                if not label or not value:
+                    continue
+                row = {"label": label, "value": value}
+                caption = _as_text(item.get("caption") or item.get("hint"))
+                if caption:
+                    row["caption"] = caption
+                items.append(row)
+            if items:
+                out.append({"type": "kpis", "items": items})
+            continue
+        if kind == "table":
+            columns = _normalize_columns(raw.get("columns"))
+            rows = [row for row in _as_list(raw.get("rows")) if isinstance(row, dict)]
+            if not columns and rows:
+                columns = _normalize_columns(list(rows[0].keys()))
+            if not columns:
+                continue
+            block = {"type": "table", "columns": columns, "rows": rows}
+            for key in ("title", "subtitle"):
+                value = _as_text(raw.get(key))
+                if value:
+                    block[key] = value
+            numeric = [str(item) for item in _as_list(raw.get("numeric")) if item]
+            if numeric:
+                block["numeric"] = numeric
+            out.append(block)
+            continue
+        if kind == "chart":
+            series = _normalize_chart_series(raw.get("series"))
+            if not series:
+                continue
+            variant = _as_text(raw.get("variant") or raw.get("chart") or "line").lower()
+            if variant not in {"line", "area", "bar"}:
+                variant = "line"
+            block = {"type": "chart", "series": series, "variant": variant}
+            for key in ("title", "subtitle", "x_label", "y_label"):
+                value = _as_text(raw.get(key))
+                if value:
+                    block[key] = value
+            out.append(block)
+            continue
+        if kind == "citations":
+            items = []
+            for item in _as_list(raw.get("items") or raw.get("citations") or raw.get("sources")):
+                if not isinstance(item, dict):
+                    continue
+                title = _as_text(item.get("title") or item.get("label"))
+                url = _as_text(item.get("url") or item.get("href"))
+                if not title and not url:
+                    continue
+                row: dict[str, str] = {"title": title or url, "url": url}
+                for key in ("publisher", "as_of", "note"):
+                    value = _as_text(item.get(key))
+                    if value:
+                        row[key] = value
+                items.append(row)
+            if items:
+                out.append({"type": "citations", "items": items})
+            continue
+        if kind == "expand":
+            title = _as_text(raw.get("title") or raw.get("label") or "Details")
+            nested = normalize_report_blocks(
+                raw.get("blocks") or raw.get("children") or [], depth=depth + 1
+            )
+            if nested:
+                out.append({"type": "expand", "title": title, "blocks": nested})
+            continue
+        if kind == "diagram":
+            nodes: list[dict[str, str]] = []
+            for item in _as_list(raw.get("nodes")):
+                if isinstance(item, str) and item.strip():
+                    nodes.append({"id": item.strip(), "label": item.strip()})
+                    continue
+                if not isinstance(item, dict):
+                    continue
+                node_id = _as_text(item.get("id") or item.get("label"))
+                label = _as_text(item.get("label") or node_id)
+                if node_id:
+                    nodes.append({"id": node_id, "label": label or node_id})
+            edges: list[dict[str, str]] = []
+            for item in _as_list(raw.get("edges")):
+                if not isinstance(item, dict):
+                    continue
+                src = _as_text(item.get("from") or item.get("source"))
+                dst = _as_text(item.get("to") or item.get("target"))
+                if not src or not dst:
+                    continue
+                edge = {"from": src, "to": dst}
+                label = _as_text(item.get("label"))
+                if label:
+                    edge["label"] = label
+                edges.append(edge)
+            if not nodes:
+                continue
+            block = {"type": "diagram", "nodes": nodes, "edges": edges}
+            title = _as_text(raw.get("title"))
+            if title:
+                block["title"] = title
+            out.append(block)
+    return out

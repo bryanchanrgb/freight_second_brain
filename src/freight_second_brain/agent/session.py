@@ -10,14 +10,10 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 from freight_second_brain.agent.artifacts import (
-    PRINTS_CHART_ID,
-    PRINTS_TABLE_ID,
-    materialize_from_tool,
-    merge_print_points,
+    REPORT_ID,
     new_artifact,
+    normalize_report_blocks,
 )
-from freight_second_brain.agent.process_sources import process_source_cards
-from freight_second_brain.agent.source_tags import AGENT_OVERRIDE_FIELDS, coerce_override
 from freight_second_brain.agent.research import (
     MAX_RECURSION,
     _message_text,
@@ -25,48 +21,48 @@ from freight_second_brain.agent.research import (
     research_system_prompt,
 )
 from freight_second_brain.config import Settings, get_settings
-from freight_second_brain.tools.registry import ToolRegistry, WEB_TOOL_NAMES
+from freight_second_brain.tools.registry import ToolRegistry
 from freight_second_brain.warehouse.store import Warehouse
 
 DESK_SYSTEM_PROMPT = """
-You are writing for a professional research desk UI. Ranked source cards are processed, tagged, and grouped automatically. A table or chart appears only if you decide it helps the reader.
+You are writing for a professional research desk UI. The right pane is a generative report. Put the full answer there with present_report on every user-facing turn. Chat is a short companion note (markdown, including tables, will render) that points at the report — do not duplicate the whole report in chat.
 
-Voice: calm, precise, institutional, and short. Prefer "The latest composite print is 3,584" over casual phrasing. Do not narrate tool calls. Do not pad the note with background the user did not ask for.
+Voice: calm, precise, institutional. Prefer "The latest composite print is 3,584" over casual phrasing. Do not narrate tool calls. Do not pad with background the user did not ask for.
 
-Source tags (desk UI, not warehouse tables):
-- provenance: primary | secondary | tertiary | overlay (Baltic/benchmark vs reprint vs blog vs Handy/grain overlay)
-- hierarchy: primary (lead in an independence group) | duplicate (syndicated reprint)
-- claim_type: observation (fact) | explanation (analysis) | forecast (outlook) | scenario | risk | methodology
-- polarity: bullish | bearish | mixed | neutral | unknown — implication for dry-bulk rates, not a keyword list
-- freshness: current | recent | aging | historical_vintage | post_cutoff_outcome
-- medium: website | pdf | rss | warehouse
+You have no warehouse schema/sql/show_source. Live web only. For a current-state question, call web_search as well as rss_feed. Use press_fetch for a dated Hellenic, Splash, Telegraph, or gCaptain set. Default category is all; pin dry-bulk / dry-cargo / freight-news when you need that desk. Other maritime titles go through web_search.
 
-After fetch_url (or when a headline is clearly a print vs outlook), call label_sources to correct claim_type, polarity, and freshness. Leave polarity unknown unless the source supports it. Do not invent tags.
+present_report is the primary reply: prose, KPI strips, sortable tables, charts, citations, expandable sections, quotes, and diagrams as the question needs. Prefer sourced tables and charts over a wall of prose. Cite only sources the report relies on. On follow-ups, call present_report again with a complete updated report (the board is replaced, not appended).
 
-Generative display:
-- present_table — only when several dated prints or a segment split would help. Use id table-prints.
-- present_chart — when a sourced time series (three or more points) or a comparison of two or more series is meaningful. Put each line in series[] as {name, points:[{x,y}]}. Use id chart-bdi. Do not chart a single print. If units or scales are incomparable, use two charts instead of one axis.
-- set_display — show_table / show_chart booleans to hide an object that is no longer relevant.
-- supersede_object — when a newer independent vintage replaces an older card.
-
-Do not present a table or chart for a one-line RSS headline unless the user asked for a series.
-On follow-up questions, update or hide objects rather than repeating the entire sweep unless asked.
-Your final message is the desk note only: brief, on-question, no unused sections. Progress labels are rendered separately.
+The final chat message is a brief pointer only. Progress labels are rendered separately.
 """
 
 PROGRESS_LABELS = {
-    "schema": "Inspecting warehouse tables",
-    "sql": "Querying the warehouse",
-    "show_source": "Opening a stored snapshot",
     "web_search": "Searching Baltic and cargo sources",
     "rss_feed": "Reading the dry-bulk news feed",
+    "press_catalog": "Checking press-site coverage",
+    "press_fetch": "Reading a publisher feed",
     "fetch_url": "Opening a selected source",
-    "present_table": "Updating the prints table",
-    "present_chart": "Updating the chart",
-    "supersede_object": "Revising the source list",
-    "set_display": "Arranging the board",
-    "label_sources": "Classifying sources",
+    "present_report": "Writing the report",
 }
+
+PRESENT_REPORT_DESCRIPTION = (
+    "Replace the right-hand generative report with the primary answer. "
+    "Call this on every user-facing turn. Chat stays a short pointer; the report is the full reply. "
+    "title: heading. subtitle: optional as-of / horizon line. "
+    "blocks_json: JSON array of blocks. Types: "
+    "markdown {type, text} (GitHub-flavored markdown); "
+    "heading {type, text, level?} (1-3); "
+    "callout {type, tone?, title?, text} (tone: info|note|warn|risk); "
+    "kpis {type, items:[{label, value, caption?}]}; "
+    "table {type, title?, subtitle?, columns:[{key,label}] or [str], rows:[object], numeric?:[key]}; "
+    "chart {type, title?, subtitle?, x_label?, y_label?, variant?: line|area|bar, series:[{name, points:[{x,y}]}]}; "
+    "citations {type, items:[{title, url, publisher?, as_of?, note?}]}; "
+    "expand {type, title, blocks:[...]} (nested, collapsed); "
+    "quote {type, text, attribution?}; "
+    "divider {type}; "
+    "diagram {type, title?, nodes:[{id,label}], edges:[{from,to,label?}]}. "
+    "On follow-ups, send a complete replacement report."
+)
 
 _current_desk: ContextVar["ResearchDesk | None"] = ContextVar("freight_sb_desk", default=None)
 _current_session_id: ContextVar[str | None] = ContextVar("freight_sb_session", default=None)
@@ -143,8 +139,7 @@ class ResearchSession:
     print_points: list[dict[str, Any]] = field(default_factory=list)
     title: str = "New session"
     turn: int = 0
-    show_table: bool = False
-    show_chart: bool = False
+    show_report: bool = False
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     run_task: asyncio.Task[Any] | None = field(default=None, repr=False)
 
@@ -185,8 +180,7 @@ class ResearchSession:
             "session_id": self.session_id,
             "title": self.title,
             "turn": self.turn,
-            "show_table": self.show_table,
-            "show_chart": self.show_chart,
+            "show_report": self.show_report,
             "artifacts": list(self.artifacts.values()),
         }
 
@@ -232,164 +226,38 @@ class ResearchDesk:
     def _ui_tools(self) -> list[Any]:
         from langchain_core.tools import StructuredTool
 
-        def present_table(
-            object_id: str,
+        def present_report(
             title: str,
-            payload_json: str,
+            blocks_json: str,
             subtitle: str | None = None,
-            supersedes: str | None = None,
-            reason: str | None = None,
         ) -> str:
             session = _require_session()
-            payload = _json_load(payload_json) or {}
+            parsed = _json_load(blocks_json)
+            blocks = normalize_report_blocks(parsed if parsed is not None else blocks_json)
             artifact = new_artifact(
-                object_id=object_id or PRINTS_TABLE_ID,
-                kind="table",
+                object_id=REPORT_ID,
+                kind="report",
                 title=title,
                 subtitle=subtitle,
-                provenance={"tool": "present_table"},
-                payload=payload,
+                provenance={"tool": "present_report"},
+                payload={"blocks": blocks},
             )
-            stored = session.upsert(artifact, supersedes=supersedes, reason=reason)
-            if artifact["kind"] == "table":
-                session.show_table = True
-            return json.dumps({"ok": True, "artifact": stored, "show_table": session.show_table}, default=str)
-
-        def present_chart(
-            object_id: str,
-            title: str,
-            payload_json: str,
-            subtitle: str | None = None,
-            supersedes: str | None = None,
-            reason: str | None = None,
-        ) -> str:
-            session = _require_session()
-            payload = _json_load(payload_json) or {}
-            artifact = new_artifact(
-                object_id=object_id or PRINTS_CHART_ID,
-                kind="chart",
-                title=title,
-                subtitle=subtitle,
-                provenance={"tool": "present_chart"},
-                payload=payload,
-            )
-            stored = session.upsert(artifact, supersedes=supersedes, reason=reason)
-            session.show_chart = True
-            return json.dumps({"ok": True, "artifact": stored, "show_chart": True}, default=str)
-
-        def supersede_object(object_id: str, replacement_id: str, reason: str) -> str:
-            session = _require_session()
-            updated = session.supersede(object_id, replacement_id, reason)
-            return json.dumps({"ok": bool(updated), "artifact": updated}, default=str)
-
-        def set_display(show_table: bool | None = None, show_chart: bool | None = None) -> str:
-            session = _require_session()
-            if show_table is not None:
-                session.show_table = bool(show_table)
-            if show_chart is not None:
-                session.show_chart = bool(show_chart)
+            stored = session.upsert(artifact)
+            session.show_report = True
             return json.dumps(
-                {"ok": True, "show_table": session.show_table, "show_chart": session.show_chart},
+                {"ok": True, "artifact": stored, "show_report": True, "block_count": len(blocks)},
                 default=str,
             )
 
-        def label_sources(updates_json: str) -> str:
-            session = _require_session()
-            parsed = _json_load(updates_json) or []
-            if isinstance(parsed, dict):
-                parsed = parsed.get("updates") or parsed.get("sources") or [parsed]
-            labeled = 0
-            for row in parsed:
-                if not isinstance(row, dict):
-                    continue
-                object_id = str(row.get("id") or row.get("object_id") or "")
-                card = session.artifacts.get(object_id)
-                if not card or card.get("kind") != "source_card":
-                    continue
-                payload = dict(card.get("payload") or {})
-                changed = False
-                for field in AGENT_OVERRIDE_FIELDS:
-                    coerced = coerce_override(field, row.get(field))
-                    if coerced:
-                        payload[field] = coerced
-                        changed = True
-                if not changed:
-                    continue
-                payload["classified_by"] = "agent"
-                session.upsert({**card, "payload": payload})
-                labeled += 1
-            refreshed = self._refresh_sources(session)
-            return json.dumps({"ok": True, "labeled": labeled, "artifacts": refreshed}, default=str)
-
         return [
             StructuredTool.from_function(
-                func=present_table,
-                name="present_table",
-                description=(
-                    "Upsert an interactive table on the research desk. "
-                    "payload_json is {columns:[{key,label}], rows:[object], numeric?:[key]}. "
-                    "Use id table-prints for Baltic prints. Set supersedes to replace another table id."
-                ),
-            ),
-            StructuredTool.from_function(
-                func=present_chart,
-                name="present_chart",
-                description=(
-                    "Upsert an interactive chart. payload_json is "
-                    "{x_label, y_label, series:[{name, points:[{x,y}]}]}. "
-                    "Each series is drawn as its own line on a shared x-axis "
-                    "(e.g. BDI and Capesize 5TC). Use id chart-bdi. "
-                    "Do not mix incomparable units on one chart."
-                ),
-            ),
-            StructuredTool.from_function(
-                func=supersede_object,
-                name="supersede_object",
-                description=(
-                    "Mark an existing desk object as superseded by a newer one "
-                    "(better vintage, fuller fetch, or a correction)."
-                ),
-            ),
-            StructuredTool.from_function(
-                func=set_display,
-                name="set_display",
-                description=(
-                    "Show or hide the prints table and chart on the board. "
-                    "Use show_chart=false when a single print does not warrant a series. "
-                    "Use show_table=true only when a comparison table helps."
-                ),
-            ),
-            StructuredTool.from_function(
-                func=label_sources,
-                name="label_sources",
-                description=(
-                    "Correct classification tags on source cards after reading them. "
-                    "updates_json is a JSON list of "
-                    "{id, claim_type?, polarity?, freshness?, access?, provenance?}. "
-                    "claim_type: observation|explanation|forecast|scenario|risk|methodology "
-                    "(aliases: fact, analysis, prediction). "
-                    "polarity: bullish|bearish|mixed|neutral|unknown. "
-                    "freshness: current|recent|aging|historical_vintage. "
-                    "provenance: primary|secondary|tertiary|overlay. "
-                    "Leave polarity unknown unless the source supports a rate implication."
-                ),
+                func=present_report,
+                name="present_report",
+                description=PRESENT_REPORT_DESCRIPTION,
             ),
         ]
 
-    def _refresh_sources(self, session: ResearchSession) -> list[dict[str, Any]]:
-        raw = [item for item in session.artifacts.values() if item.get("kind") == "source_card"]
-        processed = process_source_cards(raw, origin_turn=session.turn)
-        changed: list[dict[str, Any]] = []
-        keep_ids = {item["id"] for item in processed}
-        for item in processed:
-            changed.append(session.upsert(item))
-        for object_id, item in list(session.artifacts.items()):
-            if item.get("kind") == "source_card" and object_id not in keep_ids:
-                session.artifacts.pop(object_id, None)
-                changed.append({"id": object_id, "removed": True})
-        return changed
-
-    def _ingest_tool_result(self, session: ResearchSession, name: str, output: Any) -> list[dict[str, Any]]:
+    def _ingest_tool_result(self, session: ResearchSession, output: Any) -> list[dict[str, Any]]:
         changed: list[dict[str, Any]] = []
         parsed = _json_load(_tool_payload_text(output))
         if not isinstance(parsed, dict):
@@ -400,21 +268,8 @@ class ResearchDesk:
             payload["origin_turn"] = session.turn
             stored = session.upsert({**stored, "payload": payload})
             changed.append(stored)
-        data = parsed.get("data") if name in WEB_TOOL_NAMES else None
-        cards, points = materialize_from_tool(name, data or {})
-        for card in cards:
-            payload = dict(card.get("payload") or {})
-            payload["origin_turn"] = session.turn
-            session.upsert({**card, "payload": payload})
-        if points:
-            session.print_points = merge_print_points(session.print_points, points)
-        if cards:
-            changed.extend(self._refresh_sources(session))
-        if "show_table" in parsed or "show_chart" in parsed:
-            if "show_table" in parsed:
-                session.show_table = bool(parsed["show_table"])
-            if "show_chart" in parsed:
-                session.show_chart = bool(parsed["show_chart"])
+        if "show_report" in parsed:
+            session.show_report = bool(parsed["show_report"])
         return changed
 
     async def _final_answer(self, config: dict[str, Any]) -> str:
@@ -551,15 +406,14 @@ class ResearchDesk:
         if label:
             yield {"type": "progress", "id": name, "label": label, "status": "done"}
         output = data.get("output")
-        for artifact in self._ingest_tool_result(session, name, output):
+        for artifact in self._ingest_tool_result(session, output):
             if artifact.get("removed"):
                 yield {"type": "remove", "id": artifact["id"]}
             else:
                 yield {"type": "artifact", "artifact": artifact, "turn": session.turn}
         yield {
             "type": "display",
-            "show_table": session.show_table,
-            "show_chart": session.show_chart,
+            "show_report": session.show_report,
         }
 
 

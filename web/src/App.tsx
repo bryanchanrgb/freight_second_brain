@@ -9,7 +9,7 @@ export default function App() {
   const [health, setHealth] = useState<{ model: string; exa_backend: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [artifacts, setArtifacts] = useState<Record<string, Artifact>>({});
-  const [display, setDisplay] = useState<BoardDisplay>({ showTable: false, showChart: false, turn: 0 });
+  const [display, setDisplay] = useState<BoardDisplay>({ showReport: false, turn: 0 });
   const [draft, setDraft] = useState(
     "As of today, horizon session/week: what is the latest Baltic Dry Index print, and how did Capesize and Panamax split?",
   );
@@ -209,8 +209,7 @@ function applyEvent(
   if (event.type === "display") {
     setDisplay((prev) => ({
       ...prev,
-      showTable: Boolean(event.show_table),
-      showChart: Boolean(event.show_chart),
+      showReport: event.show_report !== undefined ? Boolean(event.show_report) : prev.showReport,
     }));
   }
   if (event.type === "error") {

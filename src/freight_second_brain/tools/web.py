@@ -12,7 +12,7 @@ import httpx
 
 from freight_second_brain.config import USER_AGENT, Settings, get_settings
 
-WEB_TOOL_NAMES = ("web_search", "rss_feed", "fetch_url")
+WEB_TOOL_NAMES = ("web_search", "rss_feed", "fetch_url", "press_catalog", "press_fetch")
 
 HELLENIC_DRY_BULK_RSS = (
     "https://www.hellenicshippingnews.com/category/shipping-news/dry-bulk-market/feed/"
@@ -61,10 +61,20 @@ def _headers(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def _get(url: str, *, headers: dict[str, str] | None = None, timeout: float = 60.0) -> tuple[int, str]:
+    status, _hdrs, text = http_get(url, headers=headers, timeout=timeout)
+    return status, text
+
+
+def http_get(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 60.0,
+) -> tuple[int, dict[str, str], str]:
     with httpx.Client(follow_redirects=True, timeout=timeout) as client:
         response = client.get(url, headers=_headers(headers))
         response.raise_for_status()
-        return response.status_code, response.text
+        return response.status_code, {k.lower(): v for k, v in response.headers.items()}, response.text
 
 
 def _post_json(

@@ -6,11 +6,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from freight_second_brain.tools.press import press_catalog, press_fetch
 from freight_second_brain.tools.web import WEB_TOOL_NAMES, fetch_url_text, read_rss_feed, search_web
 from freight_second_brain.warehouse.store import Warehouse
 
 WAREHOUSE_TOOL_NAMES = ("schema", "sql", "show_source")
 AGENT_TOOL_NAMES = WAREHOUSE_TOOL_NAMES + WEB_TOOL_NAMES
+# LangChain desk / `freight-sb agent` — live web only. Warehouse tools stay on MCP/CLI.
+DEPLOYABLE_TOOL_NAMES = WEB_TOOL_NAMES
 
 
 @dataclass
@@ -143,7 +146,8 @@ def register_default_tools(registry: ToolRegistry) -> None:
             name="rss_feed",
             description=(
                 "Read an RSS/Atom feed. Defaults to the Hellenic Shipping News dry-bulk market feed, "
-                "the cheapest high-recall layer for current BDI/Baltic headlines."
+                "the cheapest high-recall layer for same-day composite BDI prints. "
+                "Weeklies, outlooks, Reuters/Baird closes, broker PDFs, and cargo notes come from web_search, not this tool."
             ),
             parameters={
                 "type": "object",
@@ -185,6 +189,89 @@ def register_default_tools(registry: ToolRegistry) -> None:
             category="web",
         )
     )
+    registry.register(
+        ToolSpec(
+            name="press_catalog",
+            description=(
+                "List maritime press sites with a native search/date API "
+                "(Hellenic, Splash 247, Shipping Telegraph, gCaptain). "
+                "Each site includes default_category (all), categories, and category_guide "
+                "describing what that slice contains. Call this before press_fetch if you "
+                "need to pin a desk (e.g. hellenic dry-bulk for BDI prints)."
+            ),
+            parameters={"type": "object", "properties": {}},
+            handler=_press_catalog,
+            category="web",
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="press_fetch",
+            description=(
+                "Fetch headlines and excerpts from Hellenic, Splash 247, Shipping Telegraph, "
+                "or gCaptain via WordPress REST. Default category is all (whole site). "
+                "Supports keyword search and after/before ISO dates. "
+                "Pin a category when you need a desk: hellenic dry-bulk = daily BDI prints; "
+                "hellenic weekly-brokers = Xclusiv/Intermodal/Banchero weeklies; "
+                "splash dry-cargo = bulker fixtures; telegraph freight-news = IC Shipbrokers color. "
+                "gCaptain has no dry-bulk desk — pass query Capesize or Baltic Dry. "
+                "Call press_catalog for the full category_guide. "
+                "Does not cover paywalled titles (Lloyd's List, TradeWinds) — use web_search for those."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "site": {
+                        "type": "string",
+                        "enum": ["hellenic", "splash", "telegraph", "gcaptain"],
+                        "description": (
+                            "hellenic, splash, telegraph, or gcaptain. "
+                            "Default category is all on every site."
+                        ),
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Keyword search (e.g. Baltic Dry, Capesize).",
+                    },
+                    "after": {
+                        "type": "string",
+                        "description": "ISO date or datetime lower bound (e.g. 2026-09-01).",
+                    },
+                    "before": {
+                        "type": "string",
+                        "description": "ISO date or datetime upper bound (e.g. 2026-09-10).",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": (
+                            "Defaults to all (whole site) on every publisher. "
+                            "hellenic: all | dry-bulk (BDI prints) | weekly-tce (TCE sheet) | "
+                            "weekly-brokers (Xclusiv/Intermodal/Banchero) | iron-ore (MMI daily) | "
+                            "freight-news (oil/LNG, not BDI) | commodity | ports | international "
+                            "(general maritime). "
+                            "splash: all | dry-cargo (bulker fixtures/fleet) | containers | "
+                            "tankers | ports. "
+                            "telegraph: all | freight-news (IC Shipbrokers color/fixtures) | "
+                            "dry-bulk | shipping-reports | shipping-news | commodity. "
+                            "gcaptain: all | shipping | shipping-news | ports | offshore "
+                            "(no dry-bulk desk; pass query)."
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max entries (default 12, max 20).",
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "WordPress page number (default 1).",
+                    },
+                },
+                "required": ["site"],
+            },
+            handler=_press_fetch,
+            category="web",
+        )
+    )
 
 
 def _schema(warehouse: Warehouse) -> Any:
@@ -209,3 +296,28 @@ def _rss_feed(_warehouse: Warehouse, url: str | None = None, limit: int = 12) ->
 
 def _fetch_url(_warehouse: Warehouse, url: str, max_chars: int = 8000) -> Any:
     return fetch_url_text(url, max_chars=max_chars)
+
+
+def _press_catalog(_warehouse: Warehouse) -> Any:
+    return press_catalog()
+
+
+def _press_fetch(
+    _warehouse: Warehouse,
+    site: str,
+    query: str | None = None,
+    after: str | None = None,
+    before: str | None = None,
+    category: str | None = None,
+    limit: int = 12,
+    page: int = 1,
+) -> Any:
+    return press_fetch(
+        site,
+        query=query,
+        after=after,
+        before=before,
+        category=category,
+        limit=limit,
+        page=page,
+    )

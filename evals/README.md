@@ -2,7 +2,7 @@
 
 Draft evaluation set for the Freight Second Brain **research desk**: a user asks a dry-bulk rate-forecasting question, then 0–5 follow-ups in the same thread.
 
-The gold replies were written on **2026-09-09** from the same tool surface the product agent uses (`schema` / `sql` / `show_source` plus `web_search` / `rss_feed` / `fetch_url`). They are **reference answers**, not model outputs. Numbers are sourced; the set does **not** invent a BDI path.
+The gold replies were written on **2026-09-09** from warehouse `schema` / `sql` / `show_source` plus `web_search` / `rss_feed` / `fetch_url`. They are **reference answers**, not model outputs. The deployable agent is now live-web only. Numbers are sourced; the set does **not** invent a BDI path.
 
 ## Files
 
@@ -32,7 +32,7 @@ The first ten cases (`eval-001`–`010`) were almost all **expert Cape/BDI analy
 | Seasonality + FFA as a **forward** object | eval-019 |
 | User-supplied **wrong-year** Week 36 PDF (BDI 1,186) | eval-020 |
 
-Still not in the 20 (if you extend later): 5-follow-up threads; desk `present_table` / chart artifacts; charterer voyage-vs-TC economics; orderbook/newbuildings; fertilizer as a cargo; typhoon/weather as its own case; non-English; empty “thanks, continue”; paywall-bypass of SSY Navigator.
+Still not in the 20 (if you extend later): 5-follow-up threads; desk `present_report` generative UI; charterer voyage-vs-TC economics; orderbook/newbuildings; fertilizer as a cargo; typhoon/weather as its own case; non-English; empty “thanks, continue”; paywall-bypass of SSY Navigator.
 
 ## Schema (one case)
 

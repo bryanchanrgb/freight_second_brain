@@ -79,11 +79,19 @@ export function inferTags(payload: Record<string, unknown>): SourceTag[] {
 export function tagsOf(artifact: Artifact): SourceTag[] {
   const raw = artifact.payload.tags;
   if (Array.isArray(raw) && raw.length) {
-    return raw.filter(
-      (item): item is SourceTag => Boolean(item && typeof item === "object" && "id" in item && "label" in item),
-    );
+    return raw
+      .filter((item): item is SourceTag => Boolean(item && typeof item === "object" && "id" in item))
+      .map(displayTag);
   }
   return inferTags(artifact.payload);
+}
+
+function displayTag(tag: SourceTag): SourceTag {
+  const id = String(tag.id);
+  if (id === "medium:rss" || tag.value === "rss" || /^rss$/i.test(tag.label || "")) {
+    return { ...tag, id: "medium:rss", dimension: "medium", value: "rss", label: "News feed" };
+  }
+  return { ...tag, label: LABELS[id] || tag.label };
 }
 
 export function tagIdsOf(artifact: Artifact): string[] {
@@ -107,10 +115,11 @@ export function TagPills({
       {tags.map((tag) => {
         const active = selected.includes(tag.id);
         const className = `tag${active ? " active" : ""}${onToggle ? " clickable" : ""}`;
+        const label = displayTag(tag).label;
         if (!onToggle) {
           return (
             <span key={tag.id} className={className}>
-              {tag.label}
+              {label}
             </span>
           );
         }
@@ -122,7 +131,7 @@ export function TagPills({
             onClick={() => onToggle(tag.id)}
             aria-pressed={active}
           >
-            {tag.label}
+            {label}
           </button>
         );
       })}

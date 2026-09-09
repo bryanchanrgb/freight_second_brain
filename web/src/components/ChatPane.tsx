@@ -1,4 +1,4 @@
-import Markdown from "react-markdown";
+import MarkdownBody from "./MarkdownBody";
 import type { ChatMessage } from "../types";
 
 export default function ChatPane({
@@ -68,7 +68,7 @@ export default function ChatPane({
             ) : null}
             {message.role === "assistant" && message.content ? (
               <div className="body">
-                <Markdown>{message.content}</Markdown>
+                <MarkdownBody>{message.content}</MarkdownBody>
               </div>
             ) : null}
             {message.role === "user" ? <div className="body">{message.content}</div> : null}

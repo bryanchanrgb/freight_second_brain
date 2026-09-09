@@ -10,12 +10,13 @@ description: >-
 # Runtime tools (development harness)
 
 Warehouse query tools and live web research tools live in `ToolRegistry`
-(`src/freight_second_brain/tools/registry.py`). Anything registered there is the
-product agent's tool surface **and** this Cursor harness.
+(`src/freight_second_brain/tools/registry.py`). Anything registered there is this
+Cursor harness (MCP / `freight-sb tools`). The deployable LangChain agent binds
+`DEPLOYABLE_TOOL_NAMES` (live web only).
 
 Web tools match the dry-bulk research skill: `web_search` (Exa MCP free tier,
 or REST if `EXA_API_KEY` is set), `rss_feed` (Hellenic dry-bulk feed by
-default), `fetch_url` (Jina Reader).
+default), `press_fetch` (publisher REST/RSS where it exists), `fetch_url` (Jina Reader).
 
 ## How to call them
 
@@ -30,9 +31,19 @@ uv run freight-sb tools schema
 uv run freight-sb tools sql --json '{"query":"SELECT 1 AS n","limit":5}'
 uv run freight-sb tools show_source --json '{"source_id":"hellenic_rss"}'
 uv run freight-sb tools rss_feed --json '{"limit":5}'
+uv run freight-sb tools press_catalog
+uv run freight-sb tools press_fetch --json '{"site":"hellenic","after":"2026-09-01","limit":8}'
+uv run freight-sb tools press_fetch --json '{"site":"hellenic","category":"dry-bulk","query":"Baltic Dry","after":"2026-09-01","limit":8}'
+uv run freight-sb tools press_fetch --json '{"site":"telegraph","category":"freight-news","query":"Freight Market","after":"2026-09-01","limit":8}'
+uv run freight-sb tools press_fetch --json '{"site":"gcaptain","query":"Capesize","after":"2026-09-01","limit":8}'
 uv run freight-sb tools fetch_url --json '{"url":"https://www.hellenicshippingnews.com/","max_chars":2000}'
 ```
 
 Do **not** bypass the registry by reading parquet/JSONL when the job is to use or
 test agent tools. Adding a tool in `register_default_tools` exposes it on MCP after
 reload and on `freight-sb tools` immediately.
+
+`press_fetch` defaults to `category=all` (whole site). Pin a desk with `category`
+when you need BDI prints (`hellenic` `dry-bulk`), weeklies (`weekly-brokers`),
+or fixtures (`splash` `dry-cargo` / `telegraph` `freight-news`). `press_catalog`
+returns `category_guide` for every site.

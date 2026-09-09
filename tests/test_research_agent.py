@@ -4,7 +4,7 @@ from freight_second_brain.agent.research import (
     run_research_query,
     startup_check,
 )
-from freight_second_brain.tools.registry import AGENT_TOOL_NAMES, ToolRegistry
+from freight_second_brain.tools.registry import AGENT_TOOL_NAMES, DEPLOYABLE_TOOL_NAMES, WAREHOUSE_TOOL_NAMES, ToolRegistry
 from freight_second_brain.warehouse.store import Warehouse
 from tests.conftest import make_observation
 
@@ -12,21 +12,27 @@ from tests.conftest import make_observation
 def test_research_system_prompt_pins_horizon() -> None:
     prompt = research_system_prompt()
     assert "as_of" in prompt
-    assert "schema" in prompt
-    assert "sql" in prompt
-    assert "show_source" in prompt
+    assert "You have no warehouse schema/sql/show_source" in prompt
+    assert "- schema —" not in prompt
+    assert "- sql —" not in prompt
+    assert "- show_source —" not in prompt
     assert "web_search" in prompt
     assert "rss_feed" in prompt
+    assert "press_fetch" in prompt
+    assert "telegraph" in prompt
+    assert "gcaptain" in prompt
+    assert "Default category is all" in prompt
     assert "fetch_url" in prompt
     assert "Do not invent numerical forecasts" in prompt
-    assert "Warehouse vintages are not live prints" in prompt
     assert "Do not query a warehouse" not in prompt
     assert "no stored claims" in prompt
-    assert "RSS first" in prompt
+    assert "run RSS and Exa both" in prompt
+    assert "do not stop after Hellenic" in prompt
     assert "independence group" in prompt
     assert "professional" in prompt.lower()
     assert "brief" in prompt.lower()
     assert "Answer only what the user asked" in prompt
+    assert "present_report" in prompt
 
 
 def test_langchain_wrappers_call_registry(settings, monkeypatch) -> None:
@@ -62,7 +68,9 @@ def test_research_agent_startup(settings) -> None:
     report = startup_check(settings=settings)
     assert report["ok"] is True
     assert report["agent_built"] is True
-    assert report["tools"] == list(AGENT_TOOL_NAMES)
+    assert report["tools"] == list(DEPLOYABLE_TOOL_NAMES)
+    for name in WAREHOUSE_TOOL_NAMES:
+        assert name not in report["tools"]
     assert report["langchain"]
     assert report["langchain_openrouter"]
     assert report["exa_backend"] == "exa_mcp"
