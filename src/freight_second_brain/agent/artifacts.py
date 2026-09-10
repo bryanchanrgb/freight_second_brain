@@ -13,6 +13,9 @@ Status = Literal["active", "superseded"]
 PRINTS_TABLE_ID = "table-prints"
 PRINTS_CHART_ID = "chart-bdi"
 REPORT_ID = "report-main"
+
+def report_id_for_turn(turn: int) -> str:
+    return f"report-turn-{max(1, int(turn or 1))}"
 MAX_REPORT_BLOCKS = 80
 MAX_REPORT_DEPTH = 3
 REPORT_BLOCK_TYPES = (
@@ -141,7 +144,13 @@ def source_card_from_fetch(data: dict[str, Any]) -> dict[str, Any] | None:
 def merge_print_points(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_key: dict[str, dict[str, Any]] = {}
     for point in existing + incoming:
-        key = str(point.get("t") or point.get("label") or point.get("v"))
+        key = "|".join(
+            [
+                str(point.get("t") or point.get("label") or ""),
+                str(point.get("series") or "BDI"),
+                str(point.get("url") or point.get("label") or ""),
+            ]
+        )
         prior = by_key.get(key)
         if prior is None or (point.get("v") is not None):
             by_key[key] = point
@@ -266,6 +275,51 @@ def materialize_from_tool(name: str, data: Any) -> tuple[list[dict[str, Any]], l
                         "series": "BDI",
                         "label": card["title"],
                         "url": data.get("url"),
+                    }
+                )
+    elif name == "market_feed":
+        latest = data.get("latest")
+        if not isinstance(latest, dict):
+            latest = {}
+        for code, row in latest.items():
+            if not isinstance(row, dict):
+                continue
+            url = str(row.get("cite_url") or "").strip()
+            if not url:
+                continue
+            series = str(row.get("alias") or code)
+            date = str(row.get("date") or row.get("as_of") or "")[:10]
+            value = row.get("value")
+            snippet = f"{row.get('name') or series} {row.get('formatted') or value} as of {date or 'n/a'} (OilPriceAPI reprint)"
+            artifacts.append(
+                new_artifact(
+                    object_id=f"src-market-{str(code).lower().replace('_', '-')}",
+                    kind="source_card",
+                    title=str(row.get("name") or series),
+                    subtitle=date or None,
+                    provenance={
+                        "tool": "market_feed",
+                        "url": url,
+                        "published": row.get("as_of") or date,
+                        "publisher": "OilPriceAPI",
+                    },
+                    payload={
+                        "url": url,
+                        "published": row.get("as_of") or date,
+                        "highlights": [snippet],
+                        "snippet": snippet,
+                        "print": value if str(code) == "BALTIC_DRY_INDEX" else None,
+                    },
+                )
+            )
+            if value is not None and date:
+                points.append(
+                    {
+                        "t": date,
+                        "v": value,
+                        "series": series,
+                        "label": row.get("name") or series,
+                        "url": url,
                     }
                 )
     return artifacts, points
@@ -494,3 +548,51 @@ def normalize_report_blocks(blocks: Any, *, depth: int = 0) -> list[dict[str, An
                 block["title"] = title
             out.append(block)
     return out
+
+
+def normalize_citations(raw: Any) -> list[dict[str, Any]]:
+    """1-based citation list: {n, url, title, id} matching source-card ids when URL is present."""
+    items: list[dict[str, Any]] = []
+    if isinstance(raw, dict):
+        raw = raw.get("items") or raw.get("citations") or raw.get("sources") or []
+    seen_n: set[int] = set()
+    for index, item in enumerate(_as_list(raw), start=1):
+        if isinstance(item, str) and item.strip():
+            url = item.strip()
+            title = ""
+            n = index
+        elif isinstance(item, dict):
+            url = _as_text(item.get("url") or item.get("href"))
+            title = _as_text(item.get("title") or item.get("label"))
+            try:
+                n = int(item.get("n") or item.get("index") or index)
+            except (TypeError, ValueError):
+                n = index
+        else:
+            continue
+        if n < 1:
+            n = index
+        while n in seen_n:
+            n += 1
+        seen_n.add(n)
+        if not url and not title:
+            continue
+        row: dict[str, Any] = {"n": n, "url": url, "title": title or url}
+        if url:
+            row["id"] = artifact_id_for_url(url)
+        if isinstance(item, dict):
+            for key in ("publisher", "as_of", "note"):
+                value = _as_text(item.get(key))
+                if value:
+                    row[key] = value
+        items.append(row)
+    items.sort(key=lambda row: int(row["n"]))
+    return items
+
+
+def citations_from_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    found: list[Any] = []
+    for block in blocks:
+        if block.get("type") == "citations":
+            found.extend(block.get("items") or [])
+    return normalize_citations(found)

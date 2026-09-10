@@ -6,14 +6,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from freight_second_brain.tools.market import market_feed
 from freight_second_brain.tools.press import press_catalog, press_fetch
 from freight_second_brain.tools.web import WEB_TOOL_NAMES, fetch_url_text, read_rss_feed, search_web
 from freight_second_brain.warehouse.store import Warehouse
 
 WAREHOUSE_TOOL_NAMES = ("schema", "sql", "show_source")
 AGENT_TOOL_NAMES = WAREHOUSE_TOOL_NAMES + WEB_TOOL_NAMES
-# LangChain desk / `freight-sb agent` — live web only. Warehouse tools stay on MCP/CLI.
-DEPLOYABLE_TOOL_NAMES = WEB_TOOL_NAMES
+# Desk / `freight-sb agent`: live web only. No warehouse SQL, no rss_feed
+# (Hellenic dry-bulk is press_fetch). rss_feed stays on MCP/CLI.
+DEPLOYABLE_TOOL_NAMES = tuple(name for name in WEB_TOOL_NAMES if name != "rss_feed")
 
 
 @dataclass
@@ -171,7 +173,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
             name="fetch_url",
             description=(
                 "Fetch a chosen URL through Jina Reader and return extracted text. "
-                "Use after web_search or rss_feed, on one article or PDF at a time. "
+                "Use after press_fetch or web_search, on one article or PDF at a time. "
                 "Cookie walls (BIMCO, Baltic HTML) are flagged — do not treat them as analysis."
             ),
             parameters={
@@ -193,11 +195,16 @@ def register_default_tools(registry: ToolRegistry) -> None:
         ToolSpec(
             name="press_catalog",
             description=(
-                "List maritime press sites with a native search/date API "
-                "(Hellenic, Splash 247, Shipping Telegraph, gCaptain). "
-                "Each site includes default_category (all), categories, and category_guide "
-                "describing what that slice contains. Call this before press_fetch if you "
-                "need to pin a desk (e.g. hellenic dry-bulk for BDI prints)."
+                "List maritime press sites with a native WordPress search/date API. "
+                "Prefer these over web_search for news from these publishers. "
+                "hellenic (Hellenic Shipping News): Baltic reprints, daily BDI composites, "
+                "broker weeklies (Xclusiv/Intermodal/Banchero), dry TCE sheet, MMI iron ore. "
+                "splash (Splash 247): trade press; dry-cargo desk is bulker fixtures and fleet. "
+                "telegraph (Shipping Telegraph): IC Shipbrokers daily freight color and fixtures; "
+                "not Baltic prints. "
+                "gcaptain (gCaptain): operational/maritime news; no dry-bulk desk. "
+                "Each site includes default_category (all), categories, and category_guide. "
+                "Call before press_fetch if you need to pin a desk."
             ),
             parameters={"type": "object", "properties": {}},
             handler=_press_catalog,
@@ -208,12 +215,17 @@ def register_default_tools(registry: ToolRegistry) -> None:
         ToolSpec(
             name="press_fetch",
             description=(
-                "Fetch headlines and excerpts from Hellenic, Splash 247, Shipping Telegraph, "
-                "or gCaptain via WordPress REST. Default category is all (whole site). "
-                "Supports keyword search and after/before ISO dates. "
-                "Pin a category when you need a desk: hellenic dry-bulk = daily BDI prints; "
-                "hellenic weekly-brokers = Xclusiv/Intermodal/Banchero weeklies; "
-                "splash dry-cargo = bulker fixtures; telegraph freight-news = IC Shipbrokers color. "
+                "Preferred tool for maritime news stories on Hellenic, Splash 247, "
+                "Shipping Telegraph, or gCaptain (WordPress REST: search + after/before). "
+                "Do not use web_search for these four publishers unless press_fetch missed them. "
+                "Default category is all (whole site, noisy). Pin a desk: "
+                "hellenic dry-bulk = daily BDI composite prints and Cape/Panamax color; "
+                "hellenic weekly-brokers = Xclusiv, Intermodal, Banchero Costa weeklies/PDFs; "
+                "hellenic weekly-tce = weekly dry TCE estimates; "
+                "hellenic iron-ore = MMI Chinese iron ore/steelmaking prices; "
+                "splash dry-cargo = bulker fixtures and fleet; "
+                "telegraph freight-news = IC Shipbrokers commentary and fixtures (not Baltic prints); "
+                "telegraph dry-bulk = bulker-only items. "
                 "gCaptain has no dry-bulk desk — pass query Capesize or Baltic Dry. "
                 "Call press_catalog for the full category_guide. "
                 "Does not cover paywalled titles (Lloyd's List, TradeWinds) — use web_search for those."
@@ -272,6 +284,78 @@ def register_default_tools(registry: ToolRegistry) -> None:
             category="web",
         )
     )
+    registry.register(
+        ToolSpec(
+            name="market_feed",
+            description=(
+                "Dated Baltic Dry and cargo prices from OilPriceAPI. "
+                "Use this FIRST for BDI/BCI/BPI/BSI prints and daily history; "
+                "press_fetch is narrative color, not the primary print source. "
+                "HISTORY LIMIT (hard): this key's plan may allow 1y/5y, but Baltic series "
+                "on OilPriceAPI currently start in 2026 (BDI ~2026-04-10, BCI ~2026-06-08). "
+                "A 2025 or 2021 BDI window returns empty_window — do not invent those prints. "
+                "WTI/Brent do have 1-year and 5-year daily history. "
+                "BPI/BSI/BHSI are not in the catalog (404). "
+                "Free published plans: 30 days / Developer 1y / Starter 5y / Professional full archive. "
+                "Obey history_available_from, can_read_1y, can_read_5y, date_min, and empty_window. "
+                "action=catalog lists aliases (no API key). "
+                "action=latest (default) batches codes in one call — default bdi,bci. "
+                "action=history is daily: free default past=30d; past=1y needs Developer+; "
+                "start around 5 years ago needs Starter+. "
+                "codes: comma-separated aliases or OilPriceAPI codes "
+                "(iron_ore, coal, wti, brent, copper, coking_coal). "
+                "Requires OILPRICE_API_TOKEN (free signup, 50 req/day). "
+                "Cite as OilPriceAPI reprint, not official Baltic Exchange data. "
+                "Chart rows with present_report; do not dump long history into chat."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["catalog", "latest", "history"],
+                        "description": "catalog (no key), latest (default), or history (daily).",
+                    },
+                    "codes": {
+                        "type": "string",
+                        "description": (
+                            "Comma-separated aliases or OilPriceAPI codes. "
+                            "Default for latest/history: bdi,bci,bpi,bsi. "
+                            "Also: bhsi, iron_ore, coal, coking_coal, wti, brent, copper."
+                        ),
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": (
+                            "History start YYYY-MM-DD. 1-year-ago dates need Developer+; "
+                            "5-year-ago dates need Starter+. Clipped to history_available_from."
+                        ),
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "History end date YYYY-MM-DD (paid plans).",
+                    },
+                    "past": {
+                        "type": "string",
+                        "description": (
+                            "Relative window: 7d, 30d (default; Free), 3m, 6m, 1y (Developer+). "
+                            "There is no past=5y; use start ~5 years ago on Starter+."
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max daily rows returned (default 120, max 500). Newest kept if truncated.",
+                    },
+                    "live": {
+                        "type": "boolean",
+                        "description": "catalog only: merge the authenticated OilPriceAPI commodity list (uses 1 request).",
+                    },
+                },
+            },
+            handler=_market_feed,
+            category="web",
+        )
+    )
 
 
 def _schema(warehouse: Warehouse) -> Any:
@@ -320,4 +404,26 @@ def _press_fetch(
         category=category,
         limit=limit,
         page=page,
+    )
+
+
+def _market_feed(
+    _warehouse: Warehouse,
+    action: str | None = "latest",
+    codes: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    past: str | None = None,
+    limit: int | None = None,
+    live: bool | None = False,
+) -> Any:
+    return market_feed(
+        action=action,
+        codes=codes,
+        start=start,
+        end=end,
+        past=past,
+        limit=limit,
+        live=live,
+        settings=_warehouse.settings,
     )

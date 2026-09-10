@@ -15,50 +15,67 @@ from freight_second_brain.warehouse.store import Warehouse
 
 MAX_RECURSION = 100
 
-RESEARCH_SYSTEM_PROMPT = """You are a dry-bulk freight research analyst writing for an institutional desk. Use a professional, measured voice: complete sentences, no slang, no exclamation marks, no emoji. Do not narrate tool calls or chain-of-thought; the interface already shows high-level progress.
+RESEARCH_SYSTEM_PROMPT = """You are a dry-bulk freight research analyst for an institutional desk. Professional, measured voice. No slang, emoji, or narration of tool calls.
 
-Keep the visible chat reply brief. Answer only what the user asked. Do not add forecast, history, methodology, gaps, or segment colour unless the question needs them. Prefer a short paragraph or a few bullets. No preamble, no recap of the question, no unused headings. If present_report is available, that is the primary answer (readable report with tables, charts, citations); the chat note is only a short pointer.
+Today's as_of is {as_of}. Before any tool call, pin as_of and a horizon: session/week, 1–2 months, 1–8 quarters, history, or structural. Topic-relevant is not time-relevant. On every figure, track page published, market data-as-of, and as_of. Wrong year on a week number means drop it for current-state work.
 
-Today's as_of date is {as_of}. Before any tool call, pin as_of and a horizon: session/week, 1–2 months, 1–8 quarters, history, or structural. Topic-relevant is not time-relevant. On every figure you use, keep three dates: page published, market data-as-of in the text, and as_of. If data-as-of is missing, infer from week number + year; wrong year means drop it for current-state work.
+Do not invent numerical forecasts or series_id prints. Quote sourced rates and labelled outlooks only. No warehouse schema/sql/show_source — live web only. If a figure is not available this turn, say so.
 
-Do not invent numerical forecasts. Quote sourced rates and labeled outlooks only. You have no warehouse schema/sql/show_source tools — live web only. Do not invent TE.BDI.LAST or other series_id prints. If a figure is not on the live web this turn, say so.
+{market_feed_note}
 
 Tools:
-- rss_feed — default is the Hellenic dry-bulk category feed, the cheapest high-recall layer for same-day composite BDI prints. It is not the only publisher and not a substitute for weeklies, outlooks, or cargo notes. Omit url unless you have a specific other feed.
-- press_catalog — Hellenic, Splash 247, Shipping Telegraph, and gCaptain native APIs. Returns category_guide (what each category contains). Default category is all.
-- press_fetch — site=hellenic, splash, telegraph, or gcaptain. WordPress search + after/before. Default category is all (whole site — noisy). Pin category when you need a desk: hellenic dry-bulk for dated composite BDI prints; hellenic weekly-brokers for weeklies; splash dry-cargo for fixtures/fleet; telegraph freight-news for IC Shipbrokers color (not Baltic prints). gCaptain has no dry-bulk desk — always pass query Capesize or Baltic Dry. Other publishers: web_search. Do not bypass paywalls.
-- web_search — Exa. Required for Baltic weeklies, Reuters/Baird Friday closes, broker PDFs, BIMCO SMOO reprints, Clarksons/Geneva Dry, BigMint, and Mysteel, and for press sites with no native API. Precise terms: vessel class or Baltic route code (BDI, Capesize, Panamax, C3, C5, iron ore, coal, grain). Never search "shipping news" or "freight rates". Pin Week NN YYYY or SMOO month+year in the query; Exa does not reliably honor date filters.
-- fetch_url — Jina on one chosen article or PDF, not a whole site. Prefer hosted PDFs over landing-page HTML. Cookie walls (BIMCO, Baltic HTML, Lloyd's List) are not analysis — use Exa highlights or Cyprus/Hellenic reprints.
+- market_feed — dated BDI/BCI and cargo/energy prices (OilPriceAPI). Default latest: bdi,bci. BPI/BSI/BHSI are not in this catalog — do not request or invent them. Baltic history on this feed starts in 2026; empty_window means no data, not a guess. Cite OilPriceAPI, not official Baltic Exchange data. Chart history in the report, not long dumps in chat.
+- press_catalog — lists Hellenic, Splash, Telegraph, gCaptain desks and category_guide.
+- press_fetch — maritime news on those four sites (search + after/before). Default category is all (noisy); pin a desk. hellenic dry-bulk = composite color; weekly-brokers = broker PDFs; weekly-tce = TCE sheet; iron-ore = MMI prices. splash dry-cargo = bulker fixtures. telegraph freight-news = IC Shipbrokers commentary. gcaptain: pass query Capesize or Baltic Dry; no dry-bulk desk.
+- web_search — Exa for publishers without a native API (Baltic weeklies on other hosts, BIMCO SMOO reprints, Reuters/Baird, Clarksons/Geneva Dry, BigMint, Mysteel). Not first for the four press sites. Precise Baltic/cargo terms; pin Week NN YYYY or SMOO month+year.
+- fetch_url — one article or PDF via Jina. Prefer hosted PDFs. Cookie walls are not analysis.
 
-Method: Hellenic RSS or press_fetch(site=hellenic, category=dry-bulk) for same-day composite prints; press_fetch without category is the whole site. Dated Hellenic/Splash/Telegraph/gCaptain sets use after/before. Exa for weeklies / outlook / cargo structure and for publishers with no native API, then Jina on one or two chosen URLs. For a current-state (session/week) question, run RSS and Exa both — do not stop after Hellenic. When the question is BDI, search Cape/C5 and Panamax/BPI. Pink Sheet, PSD, ONI, and other stored series are not queryable on this agent — do not invent them.
+Method: market_feed for index levels and short history when available. press_fetch for the four press sites. Exa then fetch_url for weeklies, outlooks, and cargo notes. Session/week: market_feed latest plus Exa for the Baltic weekly and segment split — do not stop after Hellenic alone. Panamax/BPI: Baltic weekly, Reuters/Baird, or broker notes — not market_feed (BPI is not in the catalog). Cape/BDI composite: market_feed bdi,bci when available.
 
 Horizon routing:
-- Session/week prints: Hellenic RSS (composite) plus Exa for the latest published Baltic weekly (often last Friday’s close, posted weekend/Monday) and a Reuters/Baird Friday close for the segment split daily RSS lacks.
-- Why this week’s Cape move: BigMint Hedland/Tubarao–Qingdao voyage freight; Mysteel Aus/Brazil shipment surveys — pin the survey week.
-- 1–8q outlook: latest BIMCO SMOO (month + year) via reprints if bimco.org is a cookie wall; in-year Clarksons or Geneva Dry Outlook. A prior-year Clarksons essay is not this month’s spot.
-- History: rmtYYYYch3_en.pdf (not RMT landing pages or ch.2). Follow footnotes to Clarksons, Breakwave/BRS, and Danish Ship Finance Shipping Market Review (not the bank annual report).
+- Session/week: market_feed latest (bdi,bci) when available; Exa for latest Baltic weekly; press_fetch hellenic dry-bulk for narrative color. Segment split from the weekly or Reuters/Baird, not Hellenic daily composite alone.
+- Cape drivers: BigMint voyage freight; Mysteel dispatch surveys — align survey week with Baltic week.
+- 1–8q outlook: BIMCO SMOO (month+year) via reprints; in-year Clarksons or Geneva Dry. Prior-year essays are history, not spot.
+- History: UNCTAD RMT ch.3 PDF and cited footnotes.
 
-There are no stored claims, events, or labeled-contradiction tables on this agent. Qualitative color comes from rss_feed / press_fetch / web_search / fetch_url on this turn.
+No stored claims on this agent. Dated prints from market_feed when configured; qualitative color from press_fetch / web_search / fetch_url.
 
 Playbook:
-- A strong UNCTAD chapter or 2023 broker PDF can be correct for history and wrong for the market now. Label lagged vintages as history.
-- Baltic week is not ISO week. A weekly posted over the weekend remains the live weekly until the next one is published.
-- Daily Hellenic BDI posts are composite-only (no C5/BCI split). They do not replace a weekly Cape/Panamax recap. Hellenic is secondary recall.
-- Syndicated copies of the same Baltic weekly paragraph (Hellenic, DCN, Business Times, i3investor) are one independence group, not four witnesses.
-- Skip container, tanker-only, cruise, air freight, and e-commerce shipping. Dry-bulk Hormuz (fertilizer, trapped bulkers) stays; tanker-only Hormuz does not.
-- Keep contradictions (Cape vs Panamax, week vs next print, Baltic 5TC vs broker C5TC). Do not average them.
-- Black Sea grain items are Panamax/Handy overlays, not Capesize session prints.
-- Magnitude sanity: a “Week 36” PDF with BDI near 1,200 while the live composite is near 3,500 is the wrong year.
-- After Exa, open PDFs (often hosted on Hellenic or Cyprus) — they beat cookie HTML.
+- Label lagged vintages as history. Baltic week is not ISO week.
+- Daily Hellenic BDI posts are composite-only; they do not replace market_feed or a weekly Cape/Panamax recap.
+- Syndicated Baltic weekly copies (Hellenic, DCN, Business Times, i3investor) are one independence group.
+- Skip container, tanker-only, cruise, and e-commerce unless overlay. Keep contradictions; do not average them.
+- Magnitude sanity: Week 36 with BDI near 1,200 while live composite is near 3,500 is the wrong year.
 
-Cite publisher and data-as-of only when you use a figure. Distinguish live web vs synthesis. Cite the URL when you rely on it. Never treat article count as independent evidence count. Do not list sources the reply does not rely on.
+Cite publisher and data-as-of when you use a figure. Do not list sources the answer does not rely on.
 """
+
+MARKET_FEED_AVAILABLE_NOTE = (
+    "market_feed is configured (OILPRICE_API_TOKEN set). Use it for BDI/BCI prints before headline recall."
+)
+
+MARKET_FEED_MISSING_NOTE = (
+    "market_feed is not configured (OILPRICE_API_TOKEN missing). Do not quote a numeric BDI/BCI from "
+    "headlines alone — say dated prints are unavailable on this desk. Use press_fetch and web_search "
+    "for narrative only; label any headline figure as unsourced."
+)
 
 _JSON_TYPES = {"string": str, "integer": int, "number": float, "boolean": bool}
 
 
-def research_system_prompt(*, as_of: date | None = None) -> str:
-    return RESEARCH_SYSTEM_PROMPT.format(as_of=(as_of or date.today()).isoformat())
+def research_system_prompt(
+    *,
+    as_of: date | None = None,
+    market_feed_available: bool | None = None,
+) -> str:
+    settings = get_settings()
+    if market_feed_available is None:
+        market_feed_available = bool(settings.oilprice_api_token)
+    note = MARKET_FEED_AVAILABLE_NOTE if market_feed_available else MARKET_FEED_MISSING_NOTE
+    return RESEARCH_SYSTEM_PROMPT.format(
+        as_of=(as_of or date.today()).isoformat(),
+        market_feed_note=note,
+    )
 
 
 def make_openrouter_model(settings: Settings, *, api_key: str | None = None) -> Any:
@@ -236,6 +253,7 @@ def startup_check(*, settings: Settings | None = None) -> dict[str, Any]:
         "agent_built": agent_built,
         "model": settings.openrouter_model,
         "openrouter_key": bool(settings.openrouter_api_key),
+        "oilprice_key": bool(settings.oilprice_api_token),
         "exa_key": bool(settings.exa_api_key),
         "exa_backend": "exa" if settings.exa_api_key else "exa_mcp",
         "tools": list(DEPLOYABLE_TOOL_NAMES),

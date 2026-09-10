@@ -1,17 +1,26 @@
-import type { DeskEvent } from "./types";
+import { friendlyDeskError } from "./errors";
+import type { Artifact, BoardDisplay, ChatMessage, DeskEvent } from "./types";
 
 async function readJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || res.statusText);
+    throw new Error(friendlyDeskError(text || res.statusText));
   }
   return res.json() as Promise<T>;
 }
 
-export async function createSession() {
-  return readJson<{ session_id: string; title: string }>(
-    await fetch("/api/sessions", { method: "POST" }),
-  );
+export type SessionPayload = {
+  session_id: string;
+  title: string;
+  preloaded?: boolean;
+  messages?: ChatMessage[];
+  artifacts?: Artifact[];
+  display?: BoardDisplay;
+};
+
+export async function createSession(preload = false) {
+  const query = preload ? "?preload=true" : "";
+  return readJson<SessionPayload>(await fetch(`/api/sessions${query}`, { method: "POST" }));
 }
 
 export async function fetchHealth() {
@@ -37,7 +46,7 @@ export async function streamMessage(
     signal,
   });
   if (!res.ok || !res.body) {
-    throw new Error((await res.text()) || res.statusText);
+    throw new Error(friendlyDeskError((await res.text()) || res.statusText));
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

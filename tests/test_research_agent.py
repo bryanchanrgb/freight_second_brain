@@ -1,4 +1,6 @@
 from freight_second_brain.agent.research import (
+    MARKET_FEED_AVAILABLE_NOTE,
+    MARKET_FEED_MISSING_NOTE,
     registry_tools_to_langchain,
     research_system_prompt,
     run_research_query,
@@ -12,27 +14,38 @@ from tests.conftest import make_observation
 def test_research_system_prompt_pins_horizon() -> None:
     prompt = research_system_prompt()
     assert "as_of" in prompt
-    assert "You have no warehouse schema/sql/show_source" in prompt
+    assert "No warehouse schema/sql/show_source" in prompt
     assert "- schema —" not in prompt
     assert "- sql —" not in prompt
     assert "- show_source —" not in prompt
     assert "web_search" in prompt
-    assert "rss_feed" in prompt
+    assert "rss_feed" not in prompt
+    assert "- rss_feed" not in prompt
     assert "press_fetch" in prompt
-    assert "telegraph" in prompt
+    assert "dry-bulk" in prompt
+    assert "weekly-brokers" in prompt
+    assert "IC Shipbrokers" in prompt
+    assert "dry-cargo" in prompt
     assert "gcaptain" in prompt
+    assert "telegraph" in prompt
     assert "Default category is all" in prompt
     assert "fetch_url" in prompt
     assert "Do not invent numerical forecasts" in prompt
-    assert "Do not query a warehouse" not in prompt
-    assert "no stored claims" in prompt
-    assert "run RSS and Exa both" in prompt
+    assert "No stored claims" in prompt
     assert "do not stop after Hellenic" in prompt
+    assert "market_feed" in prompt
+    assert "OilPriceAPI" in prompt
+    assert "empty_window" in prompt
     assert "independence group" in prompt
-    assert "professional" in prompt.lower()
-    assert "brief" in prompt.lower()
-    assert "Answer only what the user asked" in prompt
-    assert "present_report" in prompt
+    assert "BPI is not in the catalog" in prompt
+    assert "Panamax/BPI" in prompt
+    assert MARKET_FEED_AVAILABLE_NOTE.split(".")[0] in prompt
+
+
+def test_research_system_prompt_without_market_feed() -> None:
+    prompt = research_system_prompt(market_feed_available=False)
+    assert MARKET_FEED_MISSING_NOTE.split(".")[0] in prompt
+    assert "headlines alone" in prompt
 
 
 def test_langchain_wrappers_call_registry(settings, monkeypatch) -> None:
@@ -71,9 +84,11 @@ def test_research_agent_startup(settings) -> None:
     assert report["tools"] == list(DEPLOYABLE_TOOL_NAMES)
     for name in WAREHOUSE_TOOL_NAMES:
         assert name not in report["tools"]
+    assert "rss_feed" not in report["tools"]
     assert report["langchain"]
     assert report["langchain_openrouter"]
     assert report["exa_backend"] == "exa_mcp"
+    assert "oilprice_key" in report
 
 
 class _FakeAgent:
@@ -86,10 +101,10 @@ class _FakeAgent:
                 HumanMessage(content=query),
                 AIMessage(
                     content="",
-                    tool_calls=[{"name": "rss_feed", "args": {"limit": 3}, "id": "call-1"}],
+                    tool_calls=[{"name": "press_fetch", "args": {"site": "hellenic", "category": "dry-bulk"}, "id": "call-1"}],
                 ),
                 ToolMessage(content='{"ok": true, "data": {"entries": []}}', tool_call_id="call-1"),
-                AIMessage(content="Latest Hellenic RSS items do not include a sourced BDI print."),
+                AIMessage(content="Latest Hellenic dry-bulk items do not include a sourced BDI print."),
             ]
         }
 
@@ -101,5 +116,5 @@ def test_run_research_query_with_fake_agent(settings, monkeypatch) -> None:
     )
     out = run_research_query("What is the latest BDI print?", settings=settings)
     assert out["ok"] is True
-    assert "rss_feed" in out["tools_used"]
+    assert "press_fetch" in out["tools_used"]
     assert "BDI" in out["answer"]

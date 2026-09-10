@@ -17,7 +17,7 @@ Predicting **dry-bulk freight** is a supply–demand–tonne-mile problem by **v
 
 **Topic-relevant ≠ time-relevant.** Pin the question’s horizon first; then keep, archive, or drop each source. A 2025 UNCTAD chapter is excellent for 2024–mid-2025 history and misleading if used as “the market now.”
 
-This skill is **live web only** (Exa, RSS, Jina). Do not query the warehouse or other static series. Playbook tested 8–9 Sep 2026 (two query rounds). Details: [queries.md](queries.md), [sources.md](sources.md).
+This skill is **live web only** (OilPriceAPI `market_feed`, Exa, press REST, Jina). Do not query the warehouse or other static series. Playbook tested 8–9 Sep 2026 (two query rounds). Details: [queries.md](queries.md), [sources.md](sources.md).
 
 ## 1. Pin horizon before you search
 
@@ -43,7 +43,7 @@ Exa will mix 2023 Allied PDFs with 2026 weeklies. Pin `Week NN YYYY` or the SMOO
 
 | Bucket | Ask | Typical sources |
 |---|---|---|
-| **News / prints** | What did BDI/BCI/C5 do *this session or week*? | Hellenic RSS, syndicated Baltic weekly, broker PDFs |
+| **News / prints** | What did BDI/BCI/C5 do *this session or week*? | `market_feed` latest; Hellenic dry-bulk for color; syndicated Baltic weekly |
 | **Analysis** | *Why* (miners, ballasters, weather, cargo)? | Same weeklies + Veson/Drewry/Breakwave notes |
 | **Forecast** | 1–8 quarter S/D, fleet, tonne-miles | Latest BIMCO SMOO reprint (not bimco.org HTML); Clarksons SRO *this year* |
 
@@ -53,7 +53,9 @@ Never mix a lagged annual vintage with a session print unless both are labeled a
 
 Use Exa, then RSS, then Jina on **chosen URLs**. Do not start from `"shipping news"` or `"freight rates"`.
 
-On the deployable agent these are ToolRegistry tools (`web_search`, `rss_feed`, `fetch_url`, `press_catalog`, `press_fetch`) — same backends as below. That agent has **no** warehouse `schema` / `sql` / `show_source`. CLI: `uv run freight-sb agent`. The desk UI adds `present_report` for the right-hand generative report.
+On the deployable agent these are ToolRegistry tools (`market_feed`, `web_search`, `press_catalog`, `press_fetch`, `fetch_url`) — same backends as below. That agent has **no** warehouse `schema` / `sql` / `show_source` and **no** `rss_feed` (Hellenic dry-bulk is `press_fetch`). CLI: `uv run freight-sb agent`. The desk UI adds `present_report` for the right-hand generative report.
+
+For **dated BDI/BCI/BPI/BSI or cargo prices**, call `market_feed` first (`action=latest`, or `history` with `past=30d` on the free OilPriceAPI plan). Hellenic `press_fetch` is secondary composite/color. Cite OilPriceAPI as a reprint, not official Baltic Exchange data.
 
 For a **current-state** pass:
 

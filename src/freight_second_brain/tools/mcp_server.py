@@ -61,9 +61,11 @@ def make_server(registry: ToolRegistry | None = None) -> Server[Any]:
         instructions=(
             "ToolRegistry for Freight Second Brain: warehouse query tools "
             "(schema, sql, show_source) and live web research tools "
-            "(web_search via Exa, rss_feed, press_fetch, fetch_url via Jina). "
-            "Warehouse tools are for this Cursor harness and CLI; the deployable "
-            "LangChain agent is live-web only."
+            "(web_search via Exa, press_fetch, rss_feed, fetch_url via Jina, "
+            "market_feed via OilPriceAPI). "
+            "Warehouse tools and rss_feed stay on this Cursor harness and CLI; "
+            "the deployable LangChain agent is live-web only and does not bind "
+            "schema/sql/show_source or rss_feed."
         ),
         on_list_tools=on_list_tools,
         on_call_tool=on_call_tool,

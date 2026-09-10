@@ -1,0 +1,108 @@
+spawn eval-001
+spawn eval-002
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-002 turn 1 start
+eval-001 turn 1 start
+eval-001 turn 1 done tools=['market_feed', 'press_fetch'] chars=670
+eval-001 turn 2 start
+eval-002 turn 1 done tools=['market_feed', 'press_fetch', 'web_search', 'fetch_url', 'fetch_url'] chars=2051
+eval-002 turn 2 start
+eval-001 turn 2 done tools=['market_feed', 'fetch_url', 'fetch_url', 'web_search', 'fetch_url', 'fetch_url'] chars=860
+eval-001 turn 3 start
+eval-001 turn 3 done tools=[] chars=520
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-001.json ok=True
+spawn eval-003
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-003 turn 1 start
+eval-002 turn 2 done tools=['web_search', 'fetch_url'] chars=2029
+eval-002 turn 3 start
+eval-002 turn 3 done tools=['fetch_url', 'fetch_url', 'web_search'] chars=1014
+eval-002 turn 4 start
+eval-003 turn 1 done tools=['market_feed', 'press_fetch', 'web_search', 'fetch_url', 'fetch_url', 'fetch_url'] chars=1856
+eval-003 turn 2 start
+eval-003 turn 2 done tools=[] chars=1540
+eval-003 turn 3 start
+eval-002 turn 4 done tools=[] chars=2107
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-002.json ok=True
+spawn eval-004
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-004 turn 1 start
+eval-003 turn 3 done tools=[] chars=1606
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-003.json ok=True
+spawn eval-005
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-005 turn 1 start
+eval-004 turn 1 done tools=['market_feed', 'web_search', 'fetch_url'] chars=989
+eval-004 turn 2 start
+eval-004 turn 2 done tools=['web_search', 'market_feed', 'press_fetch', 'web_search'] chars=1533
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-004.json ok=True
+spawn eval-006
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-006 turn 1 start
+eval-005 turn 1 done tools=['web_search', 'press_fetch', 'market_feed', 'fetch_url', 'web_search', 'fetch_url'] chars=2456
+eval-005 turn 2 start
+eval-006 turn 1 done tools=['market_feed', 'web_search', 'press_fetch'] chars=1352
+eval-006 turn 2 start
+eval-006 turn 2 done tools=[] chars=955
+eval-006 turn 3 start
+eval-006 turn 3 done tools=['web_search'] chars=1534
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-006.json ok=True
+eval-005 turn 2 done tools=['market_feed', 'market_feed', 'press_fetch', 'web_search'] chars=1924
+eval-005 turn 3 start
+eval-005 turn 3 done tools=['web_search', 'web_search', 'web_search', 'press_fetch'] chars=2232
+eval-005 turn 4 start
+eval-005 turn 4 done tools=['web_search', 'press_fetch'] chars=1985
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-005.json ok=True
+spawn eval-007
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-007 turn 1 start
+eval-007 turn 1 done tools=['market_feed', 'market_feed', 'press_fetch'] chars=2339
+eval-007 turn 2 start
+eval-007 turn 2 done tools=[] chars=811
+eval-007 turn 3 start
+eval-007 turn 3 done tools=['web_search', 'press_fetch', 'fetch_url', 'fetch_url'] chars=1868
+eval-007 turn 4 start
+eval-007 turn 4 done tools=['fetch_url', 'fetch_url'] chars=1471
+eval-007 turn 5 start
+eval-007 turn 5 done tools=[] chars=1722
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-007.json ok=True
+spawn eval-008
+spawn eval-009
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-009 turn 1 start
+eval-008 turn 1 start
+eval-009 turn 1 done tools=['market_feed', 'market_feed', 'press_fetch'] chars=1241
+eval-009 turn 2 start
+eval-008 turn 1 done tools=['market_feed', 'web_search', 'web_search', 'fetch_url'] chars=2446
+eval-008 turn 2 start
+eval-008 turn 2 done tools=['market_feed', 'press_fetch', 'press_fetch', 'web_search', 'fetch_url', 'fetch_url'] chars=2195
+eval-008 turn 3 start
+eval-009 turn 2 done tools=['web_search', 'web_search', 'press_fetch', 'web_search', 'web_search', 'fetch_url', 'web_search'] chars=1972
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-009.json ok=True
+eval-008 turn 3 done tools=['web_search', 'web_search', 'fetch_url'] chars=3176
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-008.json ok=True
+spawn eval-010
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-010 turn 1 start
+eval-010 turn 1 done tools=['market_feed', 'market_feed', 'press_catalog'] chars=4180
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-010.json ok=True
+spawn eval-011
+spawn eval-012
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-011 turn 1 start
+eval-012 turn 1 start

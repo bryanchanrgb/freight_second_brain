@@ -3,7 +3,7 @@ import type { Artifact } from "../types";
 
 type Col = { key: string; label: string };
 
-export default function PrintsTable({ artifact, fresh = false }: { artifact: Artifact; fresh?: boolean }) {
+export default function PrintsTable({ artifact }: { artifact: Artifact }) {
   const payload = artifact.payload as {
     columns?: Col[];
     rows?: Record<string, unknown>[];
@@ -28,7 +28,7 @@ export default function PrintsTable({ artifact, fresh = false }: { artifact: Art
   if (!columns.length) return null;
 
   return (
-    <section className={`table-wrap${fresh ? " fresh" : ""}`}>
+    <section className="table-wrap">
       {artifact.title ? <h2>{artifact.title}</h2> : null}
       {artifact.subtitle ? <div className="caption">{artifact.subtitle}</div> : null}
       <table className="data">

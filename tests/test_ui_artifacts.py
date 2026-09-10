@@ -1,12 +1,20 @@
 import json
 
-from freight_second_brain.agent.artifacts import extract_bdi_print, materialize_from_tool, normalize_report_blocks, prints_chart
+from freight_second_brain.agent.artifacts import (
+    extract_bdi_print,
+    materialize_from_tool,
+    normalize_citations,
+    normalize_report_blocks,
+    prints_chart,
+    report_id_for_turn,
+)
 from freight_second_brain.agent.session import (
     DESK_SYSTEM_PROMPT,
     ResearchDesk,
     ResearchSession,
     _current_desk,
     _current_session_id,
+    friendly_error_message,
 )
 
 
@@ -113,8 +121,18 @@ def test_normalize_report_blocks_coerces_unknown_and_tables() -> None:
 
 def test_desk_prompt_asks_for_generative_report() -> None:
     assert "present_report" in DESK_SYSTEM_PROMPT
-    assert "source cards" not in DESK_SYSTEM_PROMPT.lower()
+    assert "label_sources" in DESK_SYSTEM_PROMPT
+    assert "citations_json" in DESK_SYSTEM_PROMPT
     assert "present_table" not in DESK_SYSTEM_PROMPT
+    assert "See the report for sources and charts" in DESK_SYSTEM_PROMPT
+    assert "subtitle (required)" in DESK_SYSTEM_PROMPT.lower() or "subtitle (required)" in DESK_SYSTEM_PROMPT
+    assert "Session/week print" in DESK_SYSTEM_PROMPT
+
+
+def test_friendly_error_message() -> None:
+    assert "maximum" in friendly_error_message(RuntimeError("recursion limit of 100")).lower()
+    assert "OILPRICE_API_TOKEN" in friendly_error_message("Set OILPRICE_API_TOKEN")
+    assert "2026" in friendly_error_message("empty_window for BDI")
 
 
 def test_present_report_upserts_main_artifact(settings, monkeypatch) -> None:
@@ -125,7 +143,7 @@ def test_present_report_upserts_main_artifact(settings, monkeypatch) -> None:
     session_token = _current_session_id.set(session.session_id)
     try:
         tools = {tool.name: tool for tool in desk._ui_tools()}
-        assert set(tools) == {"present_report"}
+        assert set(tools) == {"present_report", "label_sources"}
         payload = tools["present_report"].invoke(
             {
                 "title": "Session BDI",
@@ -133,8 +151,11 @@ def test_present_report_upserts_main_artifact(settings, monkeypatch) -> None:
                 "blocks_json": json.dumps(
                     [
                         {"type": "kpis", "items": [{"label": "BDI", "value": "3,584", "caption": "8 Sep"}]},
-                        {"type": "markdown", "text": "Cape and Panamax split below."},
+                        {"type": "markdown", "text": "Cape and Panamax split below. [1]"},
                     ]
+                ),
+                "citations_json": json.dumps(
+                    [{"url": "https://example.test/bdi-3584", "title": "Hellenic BDI", "as_of": "2026-09-08"}]
                 ),
             }
         )
@@ -143,9 +164,45 @@ def test_present_report_upserts_main_artifact(settings, monkeypatch) -> None:
         _current_session_id.reset(session_token)
     result = json.loads(payload)
     assert result["ok"] is True
-    report = session.artifacts["report-main"]
+    report = session.artifacts["report-turn-1"]
     assert report["kind"] == "report"
     assert report["title"] == "Session BDI"
     assert session.show_report is True
     assert [block["type"] for block in report["payload"]["blocks"]] == ["kpis", "markdown"]
+    assert report["payload"]["citations"][0]["n"] == 1
     assert session.snapshot()["show_report"] is True
+    assert session.active_report_id == "report-turn-1"
+
+
+def test_present_report_keeps_turn_history(settings, monkeypatch) -> None:
+    monkeypatch.setattr("freight_second_brain.agent.session.build_research_agent", lambda **_kwargs: object())
+    desk = ResearchDesk(settings=settings)
+    session = desk.create_session()
+    desk_token = _current_desk.set(desk)
+    session_token = _current_session_id.set(session.session_id)
+    try:
+        tools = {tool.name: tool for tool in desk._ui_tools()}
+        session.turn = 1
+        tools["present_report"].invoke(
+            {"title": "Turn one", "blocks_json": json.dumps([{"type": "markdown", "text": "First."}])}
+        )
+        session.turn = 2
+        tools["present_report"].invoke(
+            {"title": "Turn two", "blocks_json": json.dumps([{"type": "markdown", "text": "Second."}])}
+        )
+    finally:
+        _current_desk.reset(desk_token)
+        _current_session_id.reset(session_token)
+    assert session.artifacts["report-turn-1"]["title"] == "Turn one"
+    assert session.artifacts["report-turn-2"]["title"] == "Turn two"
+    assert session.active_report_id == "report-turn-2"
+
+
+def test_normalize_citations_assigns_source_ids() -> None:
+    rows = normalize_citations(
+        [{"url": "https://example.test/bdi", "title": "BDI print", "publisher": "Hellenic"}]
+    )
+    assert rows[0]["n"] == 1
+    assert rows[0]["id"].startswith("src-")
+    assert report_id_for_turn(0) == "report-turn-1"
+    assert report_id_for_turn(3) == "report-turn-3"

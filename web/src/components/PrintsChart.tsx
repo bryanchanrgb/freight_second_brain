@@ -41,7 +41,7 @@ export function mergeSeries(seriesList: Series[]) {
   return { rows, keys };
 }
 
-export default function PrintsChart({ artifact, fresh = false }: { artifact: Artifact; fresh?: boolean }) {
+export default function PrintsChart({ artifact }: { artifact: Artifact }) {
   const payload = artifact.payload as {
     x_label?: string;
     y_label?: string;
@@ -57,7 +57,7 @@ export default function PrintsChart({ artifact, fresh = false }: { artifact: Art
   const multi = keys.length > 1 || variant !== "area";
 
   return (
-    <section className={`chart-wrap${fresh ? " fresh" : ""}`}>
+    <section className="chart-wrap">
       {artifact.title ? <h2>{artifact.title}</h2> : null}
       {artifact.subtitle ? <div className="caption">{artifact.subtitle}</div> : null}
       <div style={{ height: multi ? 300 : 280 }}>

@@ -10,10 +10,16 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 from freight_second_brain.agent.artifacts import (
-    REPORT_ID,
     new_artifact,
+    normalize_citations,
     normalize_report_blocks,
+    citations_from_blocks,
+    report_id_for_turn,
+    materialize_from_tool,
+    merge_print_points,
 )
+from freight_second_brain.agent.process_sources import process_source_cards
+from freight_second_brain.agent.source_tags import AGENT_OVERRIDE_FIELDS, coerce_override
 from freight_second_brain.agent.research import (
     MAX_RECURSION,
     _message_text,
@@ -21,47 +27,61 @@ from freight_second_brain.agent.research import (
     research_system_prompt,
 )
 from freight_second_brain.config import Settings, get_settings
-from freight_second_brain.tools.registry import ToolRegistry
+from freight_second_brain.tools.registry import ToolRegistry, WEB_TOOL_NAMES
 from freight_second_brain.warehouse.store import Warehouse
 
 DESK_SYSTEM_PROMPT = """
-You are writing for a professional research desk UI. The right pane is a generative report. Put the full answer there with present_report on every user-facing turn. Chat is a short companion note (markdown, including tables, will render) that points at the report — do not duplicate the whole report in chat.
+Desk UI: the right pane is a generative report with a labelled source list below. Call present_report on every user-facing turn — the report is the full answer. Chat is a short pointer only; do not duplicate the report in chat.
 
-Voice: calm, precise, institutional. Prefer "The latest composite print is 3,584" over casual phrasing. Do not narrate tool calls. Do not pad with background the user did not ask for.
+Chat format (required): one or two sentences with the headline answer, then a final line exactly: "See the report for sources and charts." No preamble, recap, or extra headings.
 
-You have no warehouse schema/sql/show_source. Live web only. For a current-state question, call web_search as well as rss_feed. Use press_fetch for a dated Hellenic, Splash, Telegraph, or gCaptain set. Default category is all; pin dry-bulk / dry-cargo / freight-news when you need that desk. Other maritime titles go through web_search.
+present_report (required every turn):
+- subtitle (required): "As of YYYY-MM-DD · {horizon}" using the horizon you pinned (session/week, 1–2 months, 1–8 quarters, history, structural).
+- Prefer tables and charts over prose walls. Chart market_feed history; do not paste long series into chat.
+- Each turn keeps its own report; earlier turns stay in history.
 
-present_report is the primary reply: prose, KPI strips, sortable tables, charts, citations, expandable sections, quotes, and diagrams as the question needs. Prefer sourced tables and charts over a wall of prose. Cite only sources the report relies on. On follow-ups, call present_report again with a complete updated report (the board is replaced, not appended).
+Report shapes by question:
+- Session/week print: KPI row (BDI, BCI or segment, as-of) + 30d chart from market_feed when available + short markdown on drivers.
+- Segment split: table or KPIs for Cape vs Panamax with data-as-of; callout if sources disagree.
+- Outlook / forecast: callout for vintage + table of claims with publisher and as-of; label lagged items as history.
+- Driver / why: quote block from the best source + cargo overlay table if relevant.
 
-The final chat message is a brief pointer only. Progress labels are rendered separately.
+Citations: use [1], [2] in markdown and table cells matching citations_json — a 1-based list of {url, title?, publisher?, as_of?, note?}. Numbers open the matching source card. Cite only sources the report uses. No citations block in blocks_json.
+
+Source cards are auto-collected from tools and tagged. After fetch_url, call label_sources to fix claim_type, polarity, and freshness when clear. Leave polarity unknown unless the source supports it.
+
+Progress labels are rendered separately; do not narrate tool calls in chat.
 """
 
 PROGRESS_LABELS = {
     "web_search": "Searching Baltic and cargo sources",
-    "rss_feed": "Reading the dry-bulk news feed",
     "press_catalog": "Checking press-site coverage",
     "press_fetch": "Reading a publisher feed",
+    "market_feed": "Reading Baltic and cargo prices",
     "fetch_url": "Opening a selected source",
     "present_report": "Writing the report",
+    "label_sources": "Classifying sources",
 }
 
 PRESENT_REPORT_DESCRIPTION = (
-    "Replace the right-hand generative report with the primary answer. "
-    "Call this on every user-facing turn. Chat stays a short pointer; the report is the full reply. "
-    "title: heading. subtitle: optional as-of / horizon line. "
+    "Publish a generative report for this turn. Earlier turns stay in the history; "
+    "this call writes (or updates) only the current turn's report. "
+    "Chat stays a short pointer; the report is the full reply. "
+    "title: heading. subtitle (required): as-of date and horizon, e.g. 'As of 2026-09-10 · session/week'. "
     "blocks_json: JSON array of blocks. Types: "
-    "markdown {type, text} (GitHub-flavored markdown); "
+    "markdown {type, text} (GitHub-flavored markdown; cite as [1], [2]); "
     "heading {type, text, level?} (1-3); "
     "callout {type, tone?, title?, text} (tone: info|note|warn|risk); "
     "kpis {type, items:[{label, value, caption?}]}; "
     "table {type, title?, subtitle?, columns:[{key,label}] or [str], rows:[object], numeric?:[key]}; "
     "chart {type, title?, subtitle?, x_label?, y_label?, variant?: line|area|bar, series:[{name, points:[{x,y}]}]}; "
-    "citations {type, items:[{title, url, publisher?, as_of?, note?}]}; "
     "expand {type, title, blocks:[...]} (nested, collapsed); "
     "quote {type, text, attribution?}; "
     "divider {type}; "
     "diagram {type, title?, nodes:[{id,label}], edges:[{from,to,label?}]}. "
-    "On follow-ups, send a complete replacement report."
+    "citations_json: JSON list of {url, title?, publisher?, as_of?, note?} in [1]..[n] order. "
+    "Each url should match a fetched source so the numbered mark opens that card. "
+    "Do not include a citations block in blocks_json."
 )
 
 _current_desk: ContextVar["ResearchDesk | None"] = ContextVar("freight_sb_desk", default=None)
@@ -132,6 +152,40 @@ def _is_recursion_error(exc: BaseException) -> bool:
     return name == "GraphRecursionError" or "recursion limit" in text
 
 
+def desk_system_prompt() -> str:
+    return DESK_SYSTEM_PROMPT
+
+
+def combined_system_prompt(*, settings: Settings | None = None) -> str:
+    settings = settings or get_settings()
+    market_feed_available = bool(settings.oilprice_api_token)
+    return research_system_prompt(market_feed_available=market_feed_available) + desk_system_prompt()
+
+
+def friendly_error_message(exc: BaseException | str) -> str:
+    text = str(exc).strip()
+    lower = text.lower()
+    if _is_recursion_error(exc if isinstance(exc, BaseException) else RuntimeError(text)):
+        return f"Stopped: the agent reached the maximum of {MAX_RECURSION} steps. Try a narrower question."
+    if "oilprice_api_token" in lower or ("oilpriceapi" in lower and "token" in lower):
+        return (
+            "OilPriceAPI token is not set. Add OILPRICE_API_TOKEN to .env for dated BDI/BCI prints, "
+            "or ask a narrative-only question."
+        )
+    if "empty_window" in lower:
+        return (
+            "The requested price history returned no data. Baltic series on this feed start in 2026; "
+            "older windows are empty."
+        )
+    if "openrouter" in lower and ("key" in lower or "401" in text or "403" in text):
+        return "OpenRouter API key missing or invalid. Check OPENROUTER_API_KEY in .env."
+    if "unknown session" in lower:
+        return "Session expired. Refresh the page to start a new session."
+    if lower in {"internal server error", "500"} or text.startswith("500"):
+        return "The desk server returned an error. Check the terminal running freight-sb ui for details."
+    return text
+
+
 @dataclass
 class ResearchSession:
     session_id: str
@@ -140,6 +194,7 @@ class ResearchSession:
     title: str = "New session"
     turn: int = 0
     show_report: bool = False
+    active_report_id: str | None = None
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     run_task: asyncio.Task[Any] | None = field(default=None, repr=False)
 
@@ -181,6 +236,7 @@ class ResearchSession:
             "title": self.title,
             "turn": self.turn,
             "show_report": self.show_report,
+            "active_report_id": self.active_report_id,
             "artifacts": list(self.artifacts.values()),
         }
 
@@ -200,7 +256,7 @@ class ResearchDesk:
             registry=self.registry,
             extra_tools=self._ui_tools(),
             checkpointer=self.checkpointer,
-            system_prompt=research_system_prompt() + DESK_SYSTEM_PROMPT,
+            system_prompt=combined_system_prompt(settings=self.settings),
         )
 
     def create_session(self) -> ResearchSession:
@@ -230,24 +286,64 @@ class ResearchDesk:
             title: str,
             blocks_json: str,
             subtitle: str | None = None,
+            citations_json: str | None = None,
         ) -> str:
             session = _require_session()
             parsed = _json_load(blocks_json)
             blocks = normalize_report_blocks(parsed if parsed is not None else blocks_json)
+            citations = normalize_citations(_json_load(citations_json) if citations_json else None)
+            if not citations:
+                citations = citations_from_blocks(blocks)
+            blocks = [block for block in blocks if block.get("type") != "citations"]
             artifact = new_artifact(
-                object_id=REPORT_ID,
+                object_id=report_id_for_turn(session.turn),
                 kind="report",
                 title=title,
                 subtitle=subtitle,
                 provenance={"tool": "present_report"},
-                payload={"blocks": blocks},
+                payload={"blocks": blocks, "citations": citations, "turn": session.turn},
             )
             stored = session.upsert(artifact)
             session.show_report = True
+            session.active_report_id = stored["id"]
             return json.dumps(
-                {"ok": True, "artifact": stored, "show_report": True, "block_count": len(blocks)},
+                {
+                    "ok": True,
+                    "artifact": stored,
+                    "show_report": True,
+                    "block_count": len(blocks),
+                    "citation_count": len(citations),
+                },
                 default=str,
             )
+
+        def label_sources(updates_json: str) -> str:
+            session = _require_session()
+            parsed = _json_load(updates_json) or []
+            if isinstance(parsed, dict):
+                parsed = parsed.get("updates") or parsed.get("sources") or [parsed]
+            labeled = 0
+            for row in parsed:
+                if not isinstance(row, dict):
+                    continue
+                object_id = str(row.get("id") or row.get("object_id") or "")
+                card = session.artifacts.get(object_id)
+                if not card or card.get("kind") != "source_card":
+                    continue
+                payload = dict(card.get("payload") or {})
+                changed = False
+                for field in AGENT_OVERRIDE_FIELDS:
+                    coerced = coerce_override(field, row.get(field))
+                    if coerced:
+                        payload[field] = coerced
+                        changed = True
+                if not changed:
+                    continue
+                payload["classified_by"] = "agent"
+                session.upsert({**card, "payload": payload})
+                labeled += 1
+            refreshed = self._refresh_sources(session)
+            return json.dumps({"ok": True, "labeled": labeled, "artifacts": refreshed}, default=str)
 
         return [
             StructuredTool.from_function(
@@ -255,9 +351,37 @@ class ResearchDesk:
                 name="present_report",
                 description=PRESENT_REPORT_DESCRIPTION,
             ),
+            StructuredTool.from_function(
+                func=label_sources,
+                name="label_sources",
+                description=(
+                    "Correct classification tags on source cards after reading them. "
+                    "updates_json is a JSON list of "
+                    "{id, claim_type?, polarity?, freshness?, access?, provenance?}. "
+                    "claim_type: observation|explanation|forecast|scenario|risk|methodology "
+                    "(aliases: fact, analysis, prediction). "
+                    "polarity: bullish|bearish|mixed|neutral|unknown. "
+                    "freshness: current|recent|aging|historical_vintage. "
+                    "provenance: primary|secondary|tertiary|overlay. "
+                    "Leave polarity unknown unless the source supports a rate implication."
+                ),
+            ),
         ]
 
-    def _ingest_tool_result(self, session: ResearchSession, output: Any) -> list[dict[str, Any]]:
+    def _refresh_sources(self, session: ResearchSession) -> list[dict[str, Any]]:
+        raw = [item for item in session.artifacts.values() if item.get("kind") == "source_card"]
+        processed = process_source_cards(raw, origin_turn=session.turn)
+        changed: list[dict[str, Any]] = []
+        keep_ids = {item["id"] for item in processed}
+        for item in processed:
+            changed.append(session.upsert(item))
+        for object_id, item in list(session.artifacts.items()):
+            if item.get("kind") == "source_card" and object_id not in keep_ids:
+                session.artifacts.pop(object_id, None)
+                changed.append({"id": object_id, "removed": True})
+        return changed
+
+    def _ingest_tool_result(self, session: ResearchSession, name: str, output: Any) -> list[dict[str, Any]]:
         changed: list[dict[str, Any]] = []
         parsed = _json_load(_tool_payload_text(output))
         if not isinstance(parsed, dict):
@@ -268,8 +392,24 @@ class ResearchDesk:
             payload["origin_turn"] = session.turn
             stored = session.upsert({**stored, "payload": payload})
             changed.append(stored)
+        data = parsed.get("data") if name in WEB_TOOL_NAMES else None
+        cards, points = materialize_from_tool(name, data or {})
+        for card in cards:
+            payload = dict(card.get("payload") or {})
+            payload["origin_turn"] = session.turn
+            session.upsert({**card, "payload": payload})
+        if points:
+            session.print_points = merge_print_points(session.print_points, points)
+        if cards:
+            changed.extend(self._refresh_sources(session))
         if "show_report" in parsed:
             session.show_report = bool(parsed["show_report"])
+        if isinstance(parsed.get("artifact"), dict) and parsed["artifact"].get("kind") == "report":
+            session.active_report_id = parsed["artifact"].get("id")
+        if name == "label_sources":
+            for item in parsed.get("artifacts") or []:
+                if isinstance(item, dict) and item.get("id"):
+                    changed.append(item)
         return changed
 
     async def _final_answer(self, config: dict[str, Any]) -> str:
@@ -340,13 +480,8 @@ class ResearchDesk:
                     stopped = True
                     break
                 except Exception as exc:
-                    if _is_recursion_error(exc):
-                        yield {
-                            "type": "error",
-                            "message": f"Stopped: the agent reached the maximum of {MAX_RECURSION} steps.",
-                        }
-                        return
-                    raise
+                    yield {"type": "error", "message": friendly_error_message(exc)}
+                    return
                 async for outgoing in self._events_from_model(session, event):
                     yield outgoing
                     if session.cancel_event.is_set():
@@ -361,13 +496,7 @@ class ResearchDesk:
             yield {"type": "message", "content": answer}
             yield {"type": "done", "session": session.snapshot()}
         except Exception as exc:  # noqa: BLE001
-            if _is_recursion_error(exc):
-                yield {
-                    "type": "error",
-                    "message": f"Stopped: the agent reached the maximum of {MAX_RECURSION} steps.",
-                }
-            else:
-                yield {"type": "error", "message": str(exc)}
+            yield {"type": "error", "message": friendly_error_message(exc)}
         finally:
             session.run_task = None
             closer = getattr(aiter, "aclose", None) or getattr(stream, "aclose", None)
@@ -406,7 +535,7 @@ class ResearchDesk:
         if label:
             yield {"type": "progress", "id": name, "label": label, "status": "done"}
         output = data.get("output")
-        for artifact in self._ingest_tool_result(session, output):
+        for artifact in self._ingest_tool_result(session, name, output):
             if artifact.get("removed"):
                 yield {"type": "remove", "id": artifact["id"]}
             else:
@@ -414,6 +543,7 @@ class ResearchDesk:
         yield {
             "type": "display",
             "show_report": session.show_report,
+            "active_report_id": session.active_report_id,
         }
 
 

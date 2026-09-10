@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from freight_second_brain.agent.preload import apply_preload, candidate_paths, load_preload
 from freight_second_brain.agent.research import startup_check
 from freight_second_brain.agent.session import get_desk
 from freight_second_brain.config import repo_root
@@ -39,9 +40,34 @@ def create_app() -> FastAPI:
         return {"ok": report["ok"], "model": report["model"], "exa_backend": report["exa_backend"]}
 
     @app.post("/api/sessions")
-    def create_session() -> dict:
-        session = get_desk().create_session()
-        return {"session_id": session.session_id, "title": session.title}
+    def create_session(preload: bool = False) -> dict:
+        desk = get_desk()
+        if preload:
+            payload = load_preload()
+            if payload:
+                session = apply_preload(desk, payload)
+                return {
+                    "session_id": session.session_id,
+                    "title": session.title,
+                    "preloaded": True,
+                    "messages": payload.get("messages") or [],
+                    "artifacts": list(session.artifacts.values()),
+                    "display": payload.get("display")
+                    or {
+                        "showReport": session.show_report,
+                        "turn": session.turn,
+                        "activeReportId": session.active_report_id,
+                    },
+                }
+        session = desk.create_session()
+        return {
+            "session_id": session.session_id,
+            "title": session.title,
+            "preloaded": False,
+            "messages": [],
+            "artifacts": [],
+            "display": {"showReport": False, "turn": 0, "activeReportId": None},
+        }
 
     @app.get("/api/sessions/{session_id}")
     def get_session(session_id: str) -> dict:
@@ -83,6 +109,13 @@ def create_app() -> FastAPI:
                 "X-Accel-Buffering": "no",
             },
         )
+
+    @app.get("/preload.json")
+    def preload_asset():
+        for path in candidate_paths():
+            if path.is_file():
+                return FileResponse(path, media_type="application/json")
+        raise HTTPException(status_code=404, detail="no preload asset")
 
     dist = web_dist()
     if dist.is_dir():

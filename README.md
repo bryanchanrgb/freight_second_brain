@@ -10,7 +10,7 @@ analysis come from **live web tools**. The system does not invent numerical fore
 **tabular** series into `observations`, writes `sources` + `catalog`, and rebuilds DuckDB.
 
 News, prints, and outlook are **not** stored as claims or events. The deployable agent
-uses `rss_feed` / `web_search` / `fetch_url` at question time.
+uses `market_feed` / `press_fetch` / `web_search` / `fetch_url` at question time.
 
 | Stage | Who | What |
 |---|---|---|
@@ -33,7 +33,7 @@ src/freight_second_brain/
   etl/              fetch, landing zone, tabular parsers
   warehouse/        parquet + JSONL + read-only DuckDB
   qualitative/      date-based freshness only
-  tools/            runtime: schema, sql, show_source, web_search, rss_feed, fetch_url
+  tools/            runtime: schema, sql, show_source, web_search, rss_feed, press_fetch, market_feed, fetch_url
   agent/            LangChain/OpenRouter research desk (live web; generative report UI)
   ui/               FastAPI research desk (SSE chat)
 web/                React research-desk frontend
@@ -76,7 +76,7 @@ Default extractors (verified public / fallback):
 | `noaa_enso` | Oceanic Niño Index |
 | `data360_maritime` | UNCTAD port/fleet indicators |
 | `eia_coal` | Filtered EIA coal production/trade/price series |
-| `hellenic_rss` | Raw feed snapshot (`show_source`); live news is `rss_feed` |
+| `hellenic_rss` | Raw feed snapshot (`show_source`); live news is `press_fetch` (hellenic dry-bulk) |
 | `qualitative_pages` | Baltic / BIMCO HTML and UNCTAD RMT PDF snapshots |
 
 FRED and IMF extractors are catalogued but disabled by default (timeouts / 403 from this environment). Licensed Baltic, AIS, and broker research stay in the catalog as non-default sources.
@@ -106,21 +106,25 @@ is not connected, `uv run freight-sb tools` is the same surface:
 uv run freight-sb tools
 uv run freight-sb tools sql --json '{"query":"SELECT 1 AS n","limit":5}'
 uv run freight-sb tools rss_feed --json '{"limit":5}'
+uv run freight-sb tools market_feed --json '{"action":"catalog"}'
+uv run freight-sb tools market_feed --json '{"action":"latest","codes":"bdi,bci"}'
 ```
 
 ## Deployable research agent
 
 The LangChain agent (`freight-sb agent` and the desk UI) binds live web tools only
-(`web_search`, `rss_feed`, `press_catalog`, `press_fetch`, `fetch_url`). Warehouse
-`schema` / `sql` / `show_source` stay on MCP and `freight-sb tools` for this harness.
+(`market_feed`, `web_search`, `press_catalog`, `press_fetch`, `fetch_url`). Warehouse
+`schema` / `sql` / `show_source` and `rss_feed` stay on MCP and `freight-sb tools`.
 
 ```bash
 uv run freight-sb agent --check
 uv run freight-sb agent "What is the latest Baltic Dry Index print this week?"
 ```
 
-Set `OPENROUTER_API_KEY`. `web_search` uses Exa's hosted MCP free tier without
-`EXA_API_KEY`; set the key to lift rate limits. `rss_feed` and `fetch_url` need
+Set `OPENROUTER_API_KEY`. Dated BDI/BCI/BPI/BSI prints use `market_feed` and need
+`OILPRICE_API_TOKEN` (free signup: https://www.oilpriceapi.com/auth/signup).
+`web_search` uses Exa's hosted MCP free tier without
+`EXA_API_KEY`; set the key to lift rate limits. `press_fetch` and `fetch_url` need
 no Exa key. Override the model with `OPENROUTER_MODEL` or `--model`.
 
 ## Research desk UI
@@ -134,6 +138,16 @@ uv run freight-sb ui
 
 Opens at `http://127.0.0.1:8787`. During frontend development, `npm run dev` in
 `web/` proxies `/api` to that server.
+
+Before a deploy, run the desk agent once and save the example session (chat, report,
+and LangGraph traces) as `web/public/preload.json`. Vite copies it into `web/dist`
+on build; the UI hydrates that session on first paint so a visitor can read the
+example and continue the conversation. Reset starts a blank session.
+
+```bash
+uv run freight-sb preload
+uv run freight-sb preload "Identify all predictive claims made in august 2026 regarding short term BDI movements (30 day horizon), by conviction and consensus vs disagreement between analysts. Test these claims against September data."
+```
 
 ## Rules the agents must keep
 

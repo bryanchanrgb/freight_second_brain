@@ -10,6 +10,7 @@ export default function ChatPane({
   onDraft,
   onSend,
   onStop,
+  onReset,
   onToggleReasoning,
 }: {
   messages: ChatMessage[];
@@ -20,8 +21,10 @@ export default function ChatPane({
   onDraft: (value: string) => void;
   onSend: () => void;
   onStop: () => void;
+  onReset: () => void;
   onToggleReasoning: () => void;
 }) {
+  const canReset = messages.length > 0 || busy;
   return (
     <section className={`chat${showReasoning ? " reasoning-on" : ""}`}>
       <div className="pane-header">
@@ -34,6 +37,14 @@ export default function ChatPane({
             aria-pressed={showReasoning}
           >
             Reasoning {showReasoning ? "on" : "off"}
+          </button>
+          <button
+            type="button"
+            className="toggle reset"
+            onClick={onReset}
+            disabled={!canReset}
+          >
+            Reset
           </button>
           <span>{busy ? "in progress" : "idle"}</span>
         </div>

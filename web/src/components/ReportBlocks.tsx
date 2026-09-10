@@ -65,31 +65,7 @@ function ReportBlockView({ block, index }: { block: ReportBlock; index: number }
     return <PrintsChart artifact={artifact} />;
   }
   if (kind === "citations") {
-    const items = Array.isArray(block.items) ? (block.items as Record<string, unknown>[]) : [];
-    return (
-      <section className="citations">
-        <h3 className="report-h report-h3">Sources</h3>
-        <ol>
-          {items.map((item, idx) => {
-            const title = String(item.title || item.url || "Source");
-            const url = String(item.url || "");
-            const meta = [item.publisher, item.as_of, item.note].filter(Boolean).map(String).join(" · ");
-            return (
-              <li key={idx}>
-                {url ? (
-                  <a href={url} target="_blank" rel="noreferrer">
-                    {title}
-                  </a>
-                ) : (
-                  <span>{title}</span>
-                )}
-                {meta ? <div className="cite-meta">{meta}</div> : null}
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-    );
+    return null;
   }
   if (kind === "expand") {
     return <ExpandBlock block={block} />;

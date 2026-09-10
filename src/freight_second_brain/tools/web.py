@@ -12,7 +12,14 @@ import httpx
 
 from freight_second_brain.config import USER_AGENT, Settings, get_settings
 
-WEB_TOOL_NAMES = ("web_search", "rss_feed", "fetch_url", "press_catalog", "press_fetch")
+WEB_TOOL_NAMES = (
+    "web_search",
+    "rss_feed",
+    "fetch_url",
+    "press_catalog",
+    "press_fetch",
+    "market_feed",
+)
 
 HELLENIC_DRY_BULK_RSS = (
     "https://www.hellenicshippingnews.com/category/shipping-news/dry-bulk-market/feed/"

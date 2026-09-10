@@ -69,7 +69,7 @@ Still not in the 20 (if you extend later): 5-follow-up threads; desk `present_re
 ## What a passing agent does
 
 1. Pin `as_of` and a **horizon** before tools.
-2. Use warehouse tools for stored **series**; use web tools for the live market. Prefer `rss_feed` for session BDI headlines.
+2. Use warehouse tools for stored **series**; use web tools for the live market. Prefer `market_feed` for dated BDI/BCI/BPI/BSI prints; `press_fetch` (hellenic `dry-bulk`) is secondary composite/color.
 3. Split **BDI vs Capesize vs Panamax vs Supramax vs Handysize**. Handy is **not** in the BDI after 1 Mar 2018.
 4. Cite **title, URL, published date, and data-as-of**. Topic-relevant ≠ time-relevant. Cover BDI ~1,100 on a “Week 36” PDF is **2023**.
 5. Count syndicated Baltic weekly copy as **one** independence group.

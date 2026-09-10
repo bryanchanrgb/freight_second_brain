@@ -1,34 +1,79 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import Board from "./components/Board";
 import ChatPane from "./components/ChatPane";
+import GuidePanel from "./components/GuidePanel";
 import { createSession, fetchHealth, stopSession, streamMessage } from "./api";
+import { friendlyDeskError } from "./errors";
 import type { Artifact, BoardDisplay, ChatMessage, DeskEvent, Progress } from "./types";
+
+const GUIDE_KEY = "freight-sb-guide-open";
+const STARTER_DRAFT =
+  "As of today, horizon session/week: what is the latest Baltic Dry Index print, and how did Capesize and Panamax split?";
+
+function artifactsRecord(items: Artifact[] | undefined): Record<string, Artifact> {
+  const next: Record<string, Artifact> = {};
+  for (const item of items || []) {
+    if (item?.id) next[item.id] = item;
+  }
+  return next;
+}
+
+function readGuideOpen() {
+  try {
+    const raw = localStorage.getItem(GUIDE_KEY);
+    if (raw === null) return true;
+    return raw === "1";
+  } catch {
+    return true;
+  }
+}
 
 export default function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [health, setHealth] = useState<{ model: string; exa_backend: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [artifacts, setArtifacts] = useState<Record<string, Artifact>>({});
-  const [display, setDisplay] = useState<BoardDisplay>({ showReport: false, turn: 0 });
-  const [draft, setDraft] = useState(
-    "As of today, horizon session/week: what is the latest Baltic Dry Index print, and how did Capesize and Panamax split?",
-  );
+  const [display, setDisplay] = useState<BoardDisplay>({ showReport: false, turn: 0, activeReportId: null });
+  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReasoning, setShowReasoning] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(readGuideOpen);
   const abortRef = useRef<AbortController | null>(null);
   const assistantIdRef = useRef<string | null>(null);
+
+  function setGuide(open: boolean) {
+    setGuideOpen(open);
+    try {
+      localStorage.setItem(GUIDE_KEY, open ? "1" : "0");
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [created, status] = await Promise.all([createSession(), fetchHealth()]);
+        const [created, status] = await Promise.all([createSession(true), fetchHealth()]);
         if (cancelled) return;
         setSessionId(created.session_id);
         setHealth({ model: status.model, exa_backend: status.exa_backend });
+        if (created.preloaded) {
+          setMessages(created.messages || []);
+          setArtifacts(artifactsRecord(created.artifacts));
+          setDisplay(created.display || { showReport: false, turn: 0, activeReportId: null });
+          setDraft("");
+          try {
+            if (localStorage.getItem(GUIDE_KEY) === null) setGuideOpen(false);
+          } catch {
+            setGuideOpen(false);
+          }
+        } else {
+          setDraft(STARTER_DRAFT);
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(friendlyDeskError(err instanceof Error ? err.message : String(err)));
       }
     })();
     return () => {
@@ -67,7 +112,7 @@ export default function App() {
       );
     } catch (err) {
       if (!isAbort(err)) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(friendlyDeskError(err instanceof Error ? err.message : String(err)));
       }
     } finally {
       abortRef.current = null;
@@ -106,6 +151,21 @@ export default function App() {
     setBusy(false);
   }
 
+  async function reset() {
+    if (busy) await stop();
+    setError(null);
+    try {
+      const created = await createSession(false);
+      setSessionId(created.session_id);
+      setMessages([]);
+      setArtifacts({});
+      setDisplay({ showReport: false, turn: 0, activeReportId: null });
+      setDraft(STARTER_DRAFT);
+    } catch (err) {
+      setError(friendlyDeskError(err instanceof Error ? err.message : String(err)));
+    }
+  }
+
   return (
     <div className="app">
       <header className="topbar">
@@ -113,24 +173,38 @@ export default function App() {
           FREIGHT SB <small>RESEARCH DESK</small>
         </div>
         <div className="top-meta">
+          <button
+            type="button"
+            className={`guide-toggle${guideOpen ? " on" : ""}`}
+            onClick={() => setGuide(!guideOpen)}
+            aria-expanded={guideOpen}
+            aria-controls="desk-guide"
+          >
+            {guideOpen ? "Hide guide" : "Open guide"}
+          </button>
           <span className={`pill ${busy ? "busy" : "live"}`}>{busy ? "running" : "live"}</span>
           <span className="mono">{health?.model ?? "connecting"}</span>
         </div>
       </header>
-      <div className="workspace">
-        <ChatPane
-          messages={messages}
-          draft={draft}
-          busy={busy}
-          error={error}
-          showReasoning={showReasoning}
-          onDraft={setDraft}
-          onSend={send}
-          onStop={stop}
-          onToggleReasoning={() => setShowReasoning((value) => !value)}
-        />
-        <Board artifacts={artifactList} display={display} />
-      </div>
+      {guideOpen ? (
+        <GuidePanel onHide={() => setGuide(false)} />
+      ) : (
+        <div className="workspace">
+          <ChatPane
+            messages={messages}
+            draft={draft}
+            busy={busy}
+            error={error}
+            showReasoning={showReasoning}
+            onDraft={setDraft}
+            onSend={send}
+            onStop={stop}
+            onReset={reset}
+            onToggleReasoning={() => setShowReasoning((value) => !value)}
+          />
+          <Board artifacts={artifactList} display={display} />
+        </div>
+      )}
     </div>
   );
 }
@@ -210,13 +284,16 @@ function applyEvent(
     setDisplay((prev) => ({
       ...prev,
       showReport: event.show_report !== undefined ? Boolean(event.show_report) : prev.showReport,
+      activeReportId:
+        event.active_report_id !== undefined ? (event.active_report_id as string | null) : prev.activeReportId,
     }));
   }
   if (event.type === "error") {
+    const message = friendlyDeskError(String(event.message ?? "The run failed."));
     setMessages((prev) =>
       prev.map((item) =>
         item.id === assistantId
-          ? { ...item, content: item.content || String(event.message ?? "The run failed."), streaming: false }
+          ? { ...item, content: item.content || message, streaming: false }
           : item,
       ),
     );

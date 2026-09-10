@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from freight_second_brain.catalog.sources import SOURCE_CATALOG, list_enabled_extractors
 from freight_second_brain.etl.enrich import finalize_warehouse
@@ -55,6 +56,20 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     sub.add_parser("mcp", help="Serve ToolRegistry over MCP stdio for the Cursor harness")
+
+    preload_p = sub.add_parser(
+        "preload",
+        help="Run the desk agent and save a static example session for first paint",
+    )
+    preload_p.add_argument("query", nargs="?", help="Research question to preload")
+    preload_p.add_argument("-q", "--query", dest="query_flag", help="Research question to preload")
+    preload_p.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="JSON path (default: web/public/preload.json)",
+    )
+    preload_p.add_argument("--model", help="OpenRouter model id (overrides OPENROUTER_MODEL)")
 
     ui = sub.add_parser("ui", help="Open the research desk chat UI")
     ui.add_argument("--host", default="127.0.0.1")
@@ -118,6 +133,17 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(result, indent=2, default=str))
         else:
             print(result["answer"])
+        return
+    if args.command == "preload":
+        from freight_second_brain.agent.preload import run_preload
+        from freight_second_brain.config import get_settings
+
+        settings = get_settings()
+        if args.model:
+            settings.openrouter_model = args.model
+        query = args.query_flag or args.query
+        payload = run_preload(query, output=args.output, settings=settings)
+        print(json.dumps({"ok": payload["ok"], "query": payload["query"], "model": payload["model"]}, indent=2))
         return
     if args.command == "mcp":
         from freight_second_brain.tools.mcp_server import serve

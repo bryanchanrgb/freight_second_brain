@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     )
     oilprice_api_token: str = Field(
         default="",
-        validation_alias=AliasChoices("OILPRICE_API_TOKEN", "oilprice_api_token"),
+        validation_alias=AliasChoices("OILPRICE_API_TOKEN", "OILPRICEAPI_KEY", "oilprice_api_token"),
     )
     openai_api_key: str = Field(default="", validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key"))
     anthropic_api_key: str = Field(

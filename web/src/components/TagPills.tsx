@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import type { Artifact } from "../types";
 
 export type SourceTag = {
@@ -100,7 +101,7 @@ export function tagIdsOf(artifact: Artifact): string[] {
   return tagsOf(artifact).map((tag) => tag.id);
 }
 
-export function TagPills({
+export const TagPills = memo(function TagPills({
   tags,
   selected = [],
   onToggle,
@@ -109,11 +110,12 @@ export function TagPills({
   selected?: string[];
   onToggle?: (id: string) => void;
 }) {
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
   if (!tags.length) return null;
   return (
     <div className="tag-row">
       {tags.map((tag) => {
-        const active = selected.includes(tag.id);
+        const active = selectedSet.has(tag.id);
         const className = `tag${active ? " active" : ""}${onToggle ? " clickable" : ""}`;
         const label = displayTag(tag).label;
         if (!onToggle) {
@@ -128,7 +130,10 @@ export function TagPills({
             key={tag.id}
             type="button"
             className={className}
-            onClick={() => onToggle(tag.id)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(tag.id);
+            }}
             aria-pressed={active}
           >
             {label}
@@ -137,4 +142,4 @@ export function TagPills({
       })}
     </div>
   );
-}
+});

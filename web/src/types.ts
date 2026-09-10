@@ -39,6 +39,17 @@ export type DeskEvent = {
 export type BoardDisplay = {
   showReport: boolean;
   turn: number;
+  activeReportId?: string | null;
+};
+
+export type Citation = {
+  n: number;
+  url?: string;
+  title?: string;
+  id?: string;
+  publisher?: string;
+  as_of?: string;
+  note?: string;
 };
 
 export type ReportBlock = {
