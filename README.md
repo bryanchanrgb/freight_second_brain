@@ -149,6 +149,33 @@ uv run freight-sb preload
 uv run freight-sb preload "Identify all predictive claims made in august 2026 regarding short term BDI movements (30 day horizon), by conviction and consensus vs disagreement between analysts. Test these claims against September data."
 ```
 
+## Hosted desk (public URL)
+
+The desk is a long-running FastAPI process (SSE chat), not a serverless function.
+A Docker web service on Render, Railway, Fly.io, or Cloud Run runs the compute
+there; you keep paying OpenRouter / OilPriceAPI / Exa with keys stored as host
+secrets. Warehouse ETL is not required.
+
+```bash
+docker build -t freight-sb-desk .
+docker run --rm -p 8787:8787 \
+  -e OPENROUTER_API_KEY \
+  -e OPENROUTER_MODEL \
+  -e OILPRICE_API_TOKEN \
+  -e DESK_ACCESS_TOKEN \
+  freight-sb-desk
+```
+
+The image binds `0.0.0.0` and honors `PORT`. Set `DESK_ACCESS_TOKEN` so the unlock
+screen is required; without it anyone with the URL can run the agent on your bill.
+Optional: `EXA_API_KEY`. Do not copy `.env` into the image.
+
+On Render, connect the GitHub repo and use `render.yaml` (fill `OPENROUTER_API_KEY`
+and `OILPRICE_API_TOKEN`; Render generates `DESK_ACCESS_TOKEN` — copy it from the
+dashboard). Railway picks up `railway.toml`. Health check: `GET /api/health`.
+
+Use one instance. Sessions are in-memory and reset on restart.
+
 ## Rules the agents must keep
 
 - Cite URLs, freshness and provenance.

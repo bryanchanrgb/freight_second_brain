@@ -72,8 +72,17 @@ def main(argv: list[str] | None = None) -> None:
     preload_p.add_argument("--model", help="OpenRouter model id (overrides OPENROUTER_MODEL)")
 
     ui = sub.add_parser("ui", help="Open the research desk chat UI")
-    ui.add_argument("--host", default="127.0.0.1")
-    ui.add_argument("--port", type=int, default=8787)
+    ui.add_argument(
+        "--host",
+        default=None,
+        help="Bind address (default: HOST env or 127.0.0.1; containers set HOST=0.0.0.0)",
+    )
+    ui.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Bind port (default: PORT env or 8787)",
+    )
     ui.add_argument("--reload", action="store_true")
 
     args = parser.parse_args(argv)

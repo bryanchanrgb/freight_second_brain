@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -15,10 +16,37 @@ from freight_second_brain.agent.preload import apply_preload, candidate_paths, l
 from freight_second_brain.agent.research import startup_check
 from freight_second_brain.agent.session import get_desk
 from freight_second_brain.config import repo_root
+from freight_second_brain.ui.auth import (
+    auth_required,
+    auth_status,
+    clear_access_cookie,
+    configured_token,
+    is_authorized,
+    is_public_path,
+    set_access_cookie,
+    tokens_match,
+    unauthorized_response,
+)
 
 
 class ChatRequest(BaseModel):
     content: str = Field(min_length=1)
+
+
+class LoginRequest(BaseModel):
+    token: str = Field(min_length=1)
+
+
+def ui_host(explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    return os.environ.get("HOST") or "127.0.0.1"
+
+
+def ui_port(explicit: int | None = None) -> int:
+    if explicit is not None:
+        return explicit
+    return int(os.environ.get("PORT") or "8787")
 
 
 def web_dist() -> Path:
@@ -27,17 +55,49 @@ def web_dist() -> Path:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Freight Second Brain", version="0.1.0")
+
+    @app.middleware("http")
+    async def desk_gate(request: Request, call_next):
+        if is_public_path(request.url.path) or is_authorized(request):
+            return await call_next(request)
+        return unauthorized_response()
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
         allow_methods=["*"],
         allow_headers=["*"],
+        allow_credentials=True,
     )
 
     @app.get("/api/health")
     def health() -> dict:
         report = startup_check()
-        return {"ok": report["ok"], "model": report["model"], "exa_backend": report["exa_backend"]}
+        return {
+            "ok": report["ok"],
+            "model": report["model"],
+            "exa_backend": report["exa_backend"],
+            "auth_required": auth_required(),
+        }
+
+    @app.get("/api/auth")
+    def read_auth(request: Request) -> dict:
+        return auth_status(request)
+
+    @app.post("/api/login")
+    def login(body: LoginRequest, request: Request) -> JSONResponse:
+        expected = configured_token()
+        if not expected or not tokens_match(body.token.strip(), expected):
+            return unauthorized_response()
+        response = JSONResponse({"ok": True, "auth_required": True, "authenticated": True})
+        set_access_cookie(response, body.token.strip(), request)
+        return response
+
+    @app.post("/api/logout")
+    def logout() -> JSONResponse:
+        response = JSONResponse({"ok": True, "authenticated": False, "auth_required": auth_required()})
+        clear_access_cookie(response)
+        return response
 
     @app.post("/api/sessions")
     def create_session(preload: bool = False) -> dict:
@@ -146,14 +206,16 @@ def create_app() -> FastAPI:
     return app
 
 
-def run_ui(*, host: str = "127.0.0.1", port: int = 8787, reload: bool = False) -> None:
+def run_ui(*, host: str | None = None, port: int | None = None, reload: bool = False) -> None:
     import uvicorn
 
     uvicorn.run(
         "freight_second_brain.ui.server:create_app",
         factory=True,
-        host=host,
-        port=port,
+        host=ui_host(host),
+        port=ui_port(port),
         reload=reload,
         log_level="info",
+        proxy_headers=True,
+        forwarded_allow_ips="*",
     )

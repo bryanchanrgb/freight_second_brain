@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import Board from "./components/Board";
 import ChatPane from "./components/ChatPane";
 import GuidePanel from "./components/GuidePanel";
-import { createSession, fetchHealth, stopSession, streamMessage } from "./api";
+import { createSession, fetchAuth, fetchHealth, loginDesk, stopSession, streamMessage } from "./api";
 import { friendlyDeskError } from "./errors";
 import type { Artifact, BoardDisplay, ChatMessage, DeskEvent, Progress } from "./types";
 
@@ -39,6 +39,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [showReasoning, setShowReasoning] = useState(false);
   const [guideOpen, setGuideOpen] = useState(readGuideOpen);
+  const [locked, setLocked] = useState(false);
+  const [accessToken, setAccessToken] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const assistantIdRef = useRef<string | null>(null);
 
@@ -51,27 +53,40 @@ export default function App() {
     }
   }
 
+  async function hydrateSession(preload: boolean) {
+    const created = await createSession(preload);
+    setSessionId(created.session_id);
+    if (created.preloaded) {
+      setMessages(created.messages || []);
+      setArtifacts(artifactsRecord(created.artifacts));
+      setDisplay(created.display || { showReport: false, turn: 0, activeReportId: null });
+      setDraft("");
+      try {
+        if (localStorage.getItem(GUIDE_KEY) === null) setGuideOpen(false);
+      } catch {
+        setGuideOpen(false);
+      }
+    } else {
+      setDraft(STARTER_DRAFT);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [created, status] = await Promise.all([createSession(true), fetchHealth()]);
+        const status = await fetchHealth();
         if (cancelled) return;
-        setSessionId(created.session_id);
         setHealth({ model: status.model, exa_backend: status.exa_backend });
-        if (created.preloaded) {
-          setMessages(created.messages || []);
-          setArtifacts(artifactsRecord(created.artifacts));
-          setDisplay(created.display || { showReport: false, turn: 0, activeReportId: null });
-          setDraft("");
-          try {
-            if (localStorage.getItem(GUIDE_KEY) === null) setGuideOpen(false);
-          } catch {
-            setGuideOpen(false);
+        if (status.auth_required) {
+          const auth = await fetchAuth();
+          if (cancelled) return;
+          if (!auth.authenticated) {
+            setLocked(true);
+            return;
           }
-        } else {
-          setDraft(STARTER_DRAFT);
         }
+        await hydrateSession(true);
       } catch (err) {
         if (!cancelled) setError(friendlyDeskError(err instanceof Error ? err.message : String(err)));
       }
@@ -80,6 +95,20 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  async function unlock(event: FormEvent) {
+    event.preventDefault();
+    if (!accessToken.trim()) return;
+    setError(null);
+    try {
+      await loginDesk(accessToken.trim());
+      setLocked(false);
+      setAccessToken("");
+      await hydrateSession(true);
+    } catch (err) {
+      setError(friendlyDeskError(err instanceof Error ? err.message : String(err)));
+    }
+  }
 
   const artifactList = useMemo(() => Object.values(artifacts), [artifacts]);
 
@@ -186,7 +215,26 @@ export default function App() {
           <span className="mono">{health?.model ?? "connecting"}</span>
         </div>
       </header>
-      {guideOpen ? (
+      {locked ? (
+        <div className="unlock">
+          <form className="unlock-card" onSubmit={unlock}>
+            <h1>Desk locked</h1>
+            <p>Enter the access token set as <code>DESK_ACCESS_TOKEN</code> on the host.</p>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={accessToken}
+              onChange={(event) => setAccessToken(event.target.value)}
+              placeholder="Access token"
+              aria-label="Access token"
+            />
+            {error ? <div className="error">{error}</div> : null}
+            <button type="submit" disabled={!accessToken.trim()}>
+              Unlock
+            </button>
+          </form>
+        </div>
+      ) : guideOpen ? (
         <GuidePanel onHide={() => setGuide(false)} />
       ) : (
         <div className="workspace">

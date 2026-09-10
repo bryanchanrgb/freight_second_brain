@@ -114,6 +114,53 @@ code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
   background: var(--gold);
 }
 
+.unlock {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+}
+.unlock-card {
+  width: min(420px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  padding: 28px 24px;
+  display: grid;
+  gap: 12px;
+}
+.unlock-card h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.unlock-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.unlock-card input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  padding: 10px 12px;
+  outline: none;
+}
+.unlock-card input:focus { border-color: var(--gold-dim); }
+.unlock-card button {
+  background: var(--gold);
+  color: #16120a;
+  border: 0;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  padding: 10px 16px;
+}
+.unlock-card button:disabled { opacity: 0.45; }
+.unlock-card .error {
+  color: var(--down);
+  font-size: 13px;
+}
+
 .guide {
   min-height: 0;
   display: grid;

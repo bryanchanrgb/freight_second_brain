@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: freight-research-desk
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
+      - key: OILPRICE_API_TOKEN
+        sync: false
+      - key: DESK_ACCESS_TOKEN
+        generateValue: true

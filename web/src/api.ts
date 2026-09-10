@@ -9,6 +9,8 @@ async function readJson<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+const FETCH_INIT: RequestInit = { credentials: "include" };
+
 export type SessionPayload = {
   session_id: string;
   title: string;
@@ -18,18 +20,54 @@ export type SessionPayload = {
   display?: BoardDisplay;
 };
 
+export type HealthPayload = {
+  ok: boolean;
+  model: string;
+  exa_backend: string;
+  auth_required?: boolean;
+};
+
+export type AuthPayload = {
+  ok: boolean;
+  auth_required: boolean;
+  authenticated: boolean;
+};
+
 export async function createSession(preload = false) {
   const query = preload ? "?preload=true" : "";
-  return readJson<SessionPayload>(await fetch(`/api/sessions${query}`, { method: "POST" }));
+  return readJson<SessionPayload>(
+    await fetch(`/api/sessions${query}`, { method: "POST", ...FETCH_INIT }),
+  );
 }
 
 export async function fetchHealth() {
-  return readJson<{ ok: boolean; model: string; exa_backend: string }>(await fetch("/api/health"));
+  return readJson<HealthPayload>(await fetch("/api/health", FETCH_INIT));
+}
+
+export async function fetchAuth() {
+  return readJson<AuthPayload>(await fetch("/api/auth", FETCH_INIT));
+}
+
+export async function loginDesk(token: string) {
+  return readJson<AuthPayload>(
+    await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      ...FETCH_INIT,
+    }),
+  );
+}
+
+export async function logoutDesk() {
+  return readJson<AuthPayload>(
+    await fetch("/api/logout", { method: "POST", ...FETCH_INIT }),
+  );
 }
 
 export async function stopSession(sessionId: string) {
   return readJson<{ ok: boolean; stopped?: boolean }>(
-    await fetch(`/api/sessions/${sessionId}/stop`, { method: "POST" }),
+    await fetch(`/api/sessions/${sessionId}/stop`, { method: "POST", ...FETCH_INIT }),
   );
 }
 
@@ -44,6 +82,7 @@ export async function streamMessage(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
     signal,
+    ...FETCH_INIT,
   });
   if (!res.ok || !res.body) {
     throw new Error(friendlyDeskError((await res.text()) || res.statusText));

@@ -20,6 +20,9 @@ export function friendlyDeskError(raw: string): string {
   if (lower.includes("unknown session")) {
     return "Session expired. Refresh the page to start again.";
   }
+  if (lower.includes("unauthorized") || lower.includes('"auth":"required"') || lower.includes('"auth": "required"')) {
+    return "This desk is locked. Enter the access token to continue.";
+  }
   if (lower === "internal server error" || text.startsWith("500")) {
     return "Server error. Check the terminal running freight-sb ui for details.";
   }

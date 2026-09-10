@@ -71,6 +71,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("OPENROUTER_MODEL", "openrouter_model"),
     )
     exa_api_key: str = Field(default="", validation_alias=AliasChoices("EXA_API_KEY", "exa_api_key"))
+    desk_access_token: str = Field(
+        default="",
+        validation_alias=AliasChoices("DESK_ACCESS_TOKEN", "desk_access_token"),
+    )
     http_timeout_s: float = 60.0
     http_retries: int = 4
     comtrade_delay_s: float = 1.2
