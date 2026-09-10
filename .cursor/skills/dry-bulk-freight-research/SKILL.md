@@ -55,7 +55,7 @@ Use Exa, then RSS, then Jina on **chosen URLs**. Do not start from `"shipping ne
 
 On the deployable agent these are ToolRegistry tools (`market_feed`, `web_search`, `press_catalog`, `press_fetch`, `fetch_url`) — same backends as below. That agent has **no** warehouse `schema` / `sql` / `show_source` and **no** `rss_feed` (Hellenic dry-bulk is `press_fetch`). CLI: `uv run freight-sb agent`. The desk UI adds `present_report` for the right-hand generative report.
 
-For **dated BDI/BCI/BPI/BSI or cargo prices**, call `market_feed` first (`action=latest`, or `history` with `past=30d` on the free OilPriceAPI plan). Hellenic `press_fetch` is secondary composite/color. Cite OilPriceAPI as a reprint, not official Baltic Exchange data.
+For **dated BDI/BCI or cargo prices**, call `market_feed` first (`action=latest`, or `history` with `past=30d` on the free OilPriceAPI plan). BPI/BSI are not in the OilPriceAPI catalog — use Baltic weeklies, Reuters/Baird, or broker notes for Panamax/Supramax splits. Hellenic `press_fetch` is secondary composite/color. Cite OilPriceAPI as a reprint, not official Baltic Exchange data.
 
 For a **current-state** pass:
 

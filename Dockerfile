@@ -16,16 +16,11 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8787 \
     PATH="/app/.venv/bin:/usr/local/bin:$PATH"
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
-    && curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
-    && apt-get purge -y curl \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-RUN uv sync --frozen --no-dev
+RUN uv --version && uv sync --frozen --no-dev
 COPY --from=web /web/dist ./web/dist
 
 RUN useradd --create-home --uid 1000 app && chown -R app:app /app

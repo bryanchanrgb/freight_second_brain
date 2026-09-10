@@ -60,4 +60,4 @@ RSS `published` is the feed timestamp. Daily Hellenic BDI posts are composite-on
 
 ## RSS vs search
 
-Hellenic category RSS (`…/dry-bulk-market/feed/`) is better than Exa for *same-day BDI prints* (8 Sep 2026 “climbs to 3584”). Exa is better for *outlooks, weeklies, and cargo structure*. Run both.
+`market_feed` is the dated BDI/BCI print source when `OILPRICE_API_TOKEN` is set. Hellenic RSS / `press_fetch` dry-bulk is better than Exa for *same-day composite headlines* (8 Sep 2026 “climbs to 3584”). Exa is better for *outlooks, weeklies, and cargo structure*. Run `market_feed` and Exa on session/week questions.

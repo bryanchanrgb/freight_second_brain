@@ -13,8 +13,8 @@ description: >-
 Warehouse query tools and live web research tools live in `ToolRegistry`
 (`src/freight_second_brain/tools/registry.py`). Anything registered there is this
 Cursor harness (MCP / `freight-sb tools`). The deployable LangChain agent binds
-`DEPLOYABLE_TOOL_NAMES` (live web: `market_feed`, `press_fetch`, `web_search`,
-`fetch_url` — no warehouse SQL, no rss_feed).
+`DEPLOYABLE_TOOL_NAMES` (live web: `market_feed`, `press_catalog`, `press_fetch`,
+`web_search`, `fetch_url` — no warehouse SQL, no rss_feed).
 
 Web tools match the dry-bulk research skill: `market_feed` (OilPriceAPI Baltic
 and cargo prices; needs `OILPRICE_API_TOKEN`), `web_search` (Exa MCP free tier,
@@ -40,7 +40,7 @@ uv run freight-sb tools press_fetch --json '{"site":"hellenic","category":"dry-b
 uv run freight-sb tools press_fetch --json '{"site":"telegraph","category":"freight-news","query":"Freight Market","after":"2026-09-01","limit":8}'
 uv run freight-sb tools press_fetch --json '{"site":"gcaptain","query":"Capesize","after":"2026-09-01","limit":8}'
 uv run freight-sb tools market_feed --json '{"action":"catalog"}'
-uv run freight-sb tools market_feed --json '{"action":"latest","codes":"bdi,bci,bpi,bsi"}'
+uv run freight-sb tools market_feed --json '{"action":"latest","codes":"bdi,bci"}'
 uv run freight-sb tools market_feed --json '{"action":"history","codes":"bdi","past":"30d"}'
 uv run freight-sb tools fetch_url --json '{"url":"https://www.hellenicshippingnews.com/","max_chars":2000}'
 ```

@@ -41,7 +41,7 @@ PRESS_SITES: dict[str, dict[str, Any]] = {
         },
         "category_guide": {
             "all": "Entire site. High volume: tanker/geopolitics, macro, ports, oil, plus dry bulk.",
-            "dry-bulk": "Dry Bulk Market desk. Daily BDI composite prints and Cape/Panamax color.",
+            "dry-bulk": "Dry Bulk Market desk. Daily BDI composite headlines and Cape/Panamax color.",
             "weekly-tce": "Weekly Dry Time Charter Estimates sheet.",
             "weekly-brokers": "Weekly shipbroker reports (Xclusiv, Intermodal, Banchero Costa PDFs).",
             "iron-ore": "Chinese iron ore and steelmaking prices (MMI daily).",
@@ -54,7 +54,7 @@ PRESS_SITES: dict[str, dict[str, Any]] = {
         "access": "public_excerpt",
         "note": (
             "WordPress REST. Default category is all (whole site). "
-            "Pin dry-bulk for BDI prints, weekly-brokers for weeklies, weekly-tce for TCE. "
+            "Pin dry-bulk for BDI composite color, weekly-brokers for weeklies, weekly-tce for TCE. "
             "Excerpts, not a full-text dump."
         ),
     },

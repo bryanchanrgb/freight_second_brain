@@ -1,4 +1,4 @@
-"""Live web research backends used by the dry-bulk research skill: Exa, RSS, Jina."""
+"""Live web research backends: Exa search, RSS, Jina Reader, plus press REST and OilPriceAPI via sibling modules."""
 
 from __future__ import annotations
 

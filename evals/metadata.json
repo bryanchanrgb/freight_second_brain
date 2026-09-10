@@ -20,7 +20,7 @@
     "bpi": 2414,
     "bsi": 1693,
     "data_as_of": "2026-09-08",
-    "source": "Trading Economics recap via TradingView; Hellenic RSS composite 3584"
+    "source": "Hellenic RSS composite 3584 (gold vintage); deployable desk should prefer market_feed for BDI/BCI when OILPRICE_API_TOKEN is set"
   },
   "generator": {
     "harness": "Cursor agent (freight_second_brain workspace)",
@@ -40,7 +40,7 @@
       "interface": "MCP project-0-freight_second_brain-freight-second-brain",
       "names": ["schema", "sql", "show_source"]
     },
-    "web_tools": {
+    "web_tools_gold_vintage": {
       "interface": "uv run freight-sb tools",
       "names": ["web_search", "rss_feed", "fetch_url"],
       "backends": {
@@ -48,6 +48,10 @@
         "rss_feed": "Hellenic dry-bulk category RSS",
         "fetch_url": "jina"
       }
+    },
+    "web_tools_deployable": {
+      "names": ["market_feed", "press_catalog", "press_fetch", "web_search", "fetch_url"],
+      "note": "rss_feed and warehouse SQL are harness-only; not bound on the desk agent"
     },
     "rules": [
       "Pin as_of and horizon before search",

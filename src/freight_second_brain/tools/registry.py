@@ -148,7 +148,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
             name="rss_feed",
             description=(
                 "Read an RSS/Atom feed. Defaults to the Hellenic Shipping News dry-bulk market feed, "
-                "the cheapest high-recall layer for same-day composite BDI prints. "
+                "the cheapest high-recall layer for same-day composite BDI headlines. "
                 "Weeklies, outlooks, Reuters/Baird closes, broker PDFs, and cargo notes come from web_search, not this tool."
             ),
             parameters={
@@ -257,7 +257,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
                         "type": "string",
                         "description": (
                             "Defaults to all (whole site) on every publisher. "
-                            "hellenic: all | dry-bulk (BDI prints) | weekly-tce (TCE sheet) | "
+                            "hellenic: all | dry-bulk (BDI composite color) | weekly-tce (TCE sheet) | "
                             "weekly-brokers (Xclusiv/Intermodal/Banchero) | iron-ore (MMI daily) | "
                             "freight-news (oil/LNG, not BDI) | commodity | ports | international "
                             "(general maritime). "
@@ -289,7 +289,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
             name="market_feed",
             description=(
                 "Dated Baltic Dry and cargo prices from OilPriceAPI. "
-                "Use this FIRST for BDI/BCI/BPI/BSI prints and daily history; "
+                "Use this FIRST for BDI/BCI prints and daily history; "
                 "press_fetch is narrative color, not the primary print source. "
                 "HISTORY LIMIT (hard): this key's plan may allow 1y/5y, but Baltic series "
                 "on OilPriceAPI currently start in 2026 (BDI ~2026-04-10, BCI ~2026-06-08). "
@@ -320,7 +320,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
                         "type": "string",
                         "description": (
                             "Comma-separated aliases or OilPriceAPI codes. "
-                            "Default for latest/history: bdi,bci,bpi,bsi. "
+                            "Default for latest/history: bdi,bci. "
                             "Also: bhsi, iron_ore, coal, coking_coal, wti, brent, copper."
                         ),
                     },

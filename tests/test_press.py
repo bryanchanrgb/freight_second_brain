@@ -89,7 +89,7 @@ def test_registry_exposes_press_tools(settings) -> None:
     fetch = next(spec for spec in registry.list_tools() if spec["name"] == "press_fetch")
     cat_desc = fetch["parameters"]["properties"]["category"]["description"]
     assert "Defaults to all" in cat_desc
-    assert "dry-bulk (BDI prints)" in cat_desc
+    assert "dry-bulk (BDI composite color)" in cat_desc
     assert "IC Shipbrokers" in cat_desc
 
 

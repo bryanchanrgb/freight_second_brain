@@ -154,3 +154,9 @@ spawn eval-017
 /home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
   from pydantic.v1 import BaseModel as BaseModelV1
 eval-017 turn 1 start
+eval-016 turn 2 done tools=['web_search', 'fetch_url'] chars=3532
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-016.json ok=True
+spawn eval-018
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-018 turn 1 start

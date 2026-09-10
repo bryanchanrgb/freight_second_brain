@@ -46,10 +46,12 @@ turns are `missing` (those turns score 0 on all applicable axes).
    follow-up”).
 5. Emit judgment JSON (schema below). Do not invent a BDI path while judging.
 
-`gold_tool_plan` is **advisory**. Pass if the candidate used the right *layer*
-(warehouse vs RSS vs web) for the question. Extra tools are fine. Fail
-freshness/honesty if they skip web on a live BDI question or skip SQL when the
-user asked what the warehouse contains.
+`gold_tool_plan` is **advisory** and reflects the 2026-09-09 gold vintage (often
+`rss_feed` / `sql`). On the deployable desk, map RSS → `press_fetch`, SQL →
+honest gap or `market_feed` when prints are asked. Pass if the candidate used the
+right *layer* (warehouse vs dated prints vs press vs web) for the question.
+Extra tools are fine. Fail freshness/honesty if they skip `market_feed` or web
+on a live BDI question when a token is configured.
 
 ## Hard fails (case `result: fail`)
 

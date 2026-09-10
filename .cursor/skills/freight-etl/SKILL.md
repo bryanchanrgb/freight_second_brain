@@ -9,8 +9,9 @@ description: >-
 # Freight ETL (code ingest)
 
 The pipeline is **code ingest only**. News, analysis, and outlook come from live
-web tools (`rss_feed`, `web_search`, `fetch_url`) at question time — not from
-stored claims or RSS events.
+live web tools (`market_feed`, `press_fetch`, `web_search`, `fetch_url`) at
+question time on the deployable desk — not from stored claims. The harness also
+exposes `rss_feed` and warehouse SQL for development.
 
 ## Code ingest
 

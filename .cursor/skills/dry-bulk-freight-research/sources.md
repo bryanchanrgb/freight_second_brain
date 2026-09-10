@@ -6,7 +6,7 @@ Independence: DCN, Hellenic, Business Times, and i3investor reprinted the **same
 
 | Typical lag | Examples | Current-state (session/week)? | History / outlook? |
 |---|---|---|---|
-| Hours–days | Hellenic RSS BDI prints (composite) | Yes | No (wrong task) |
+| Hours–days | `market_feed` BDI/BCI; Hellenic RSS composite headlines | Yes | No (wrong task) |
 | Latest published Baltic week | Week 36 dated Fri 4 Sep, still current on Tue 8 Sep (ISO W37) | Yes | Yes as snapshot |
 | One week behind | Signal Group “Week 35” monitor on 8 Sep | No for *this* week | Yes for last week |
 | Month / quarter | BIMCO SMOO **July 2026** | Weak for *today’s* C5 | Yes for drivers / S/D |

@@ -121,15 +121,21 @@ uv run freight-sb agent --check
 uv run freight-sb agent "What is the latest Baltic Dry Index print this week?"
 ```
 
-Set `OPENROUTER_API_KEY`. Dated BDI/BCI/BPI/BSI prints use `market_feed` and need
+Set `OPENROUTER_API_KEY`. Dated **BDI/BCI** prints use `market_feed` and need
 `OILPRICE_API_TOKEN` (free signup: https://www.oilpriceapi.com/auth/signup).
+BPI/BSI are not in the OilPriceAPI catalog — segment splits come from Baltic
+weeklies, Reuters/Baird, or broker notes via `press_fetch` / `web_search`.
 `web_search` uses Exa's hosted MCP free tier without
 `EXA_API_KEY`; set the key to lift rate limits. `press_fetch` and `fetch_url` need
 no Exa key. Override the model with `OPENROUTER_MODEL` or `--model`.
 
 ## Research desk UI
 
-Multi-turn chat plus a right-hand generative report (markdown, tables, charts, citations):
+Opens with a collapsible **guide** (introduction + data-source spec). Multi-turn
+**chat** on the left is a short pointer to the **report** on the right (markdown,
+tables, charts, labelled sources with clickable citations). Agent prompts split
+into research routing (`research_system_prompt`) and desk UI rules
+(`desk_system_prompt`, combined in the session).
 
 ```bash
 cd web && npm install && npm run build
