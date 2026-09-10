@@ -7,6 +7,8 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from freight_second_brain.agent.json_payload import looks_like_json_payload, parse_json_payload
+
 Kind = Literal["source_card", "table", "chart", "report"]
 Status = Literal["active", "superseded"]
 
@@ -18,6 +20,15 @@ def report_id_for_turn(turn: int) -> str:
     return f"report-turn-{max(1, int(turn or 1))}"
 MAX_REPORT_BLOCKS = 80
 MAX_REPORT_DEPTH = 3
+PARSE_FAIL_CALLOUT = {
+    "type": "callout",
+    "tone": "warn",
+    "title": "Report payload could not be parsed",
+    "text": (
+        "The model sent blocks that were not valid JSON, so the structured report "
+        "was not written. Retry the question."
+    ),
+}
 REPORT_BLOCK_TYPES = (
     "markdown",
     "heading",
@@ -384,6 +395,14 @@ def normalize_report_blocks(blocks: Any, *, depth: int = 0) -> list[dict[str, An
     """Coerce an LLM block list into a bounded, renderable report payload."""
     if depth > MAX_REPORT_DEPTH:
         return []
+    if isinstance(blocks, str):
+        parsed = parse_json_payload(blocks)
+        if parsed is not None:
+            return normalize_report_blocks(parsed, depth=depth)
+        if looks_like_json_payload(blocks):
+            return [dict(PARSE_FAIL_CALLOUT)] if depth == 0 else []
+        text = blocks.strip()
+        return [{"type": "markdown", "text": text}] if text else []
     if isinstance(blocks, dict):
         blocks = blocks.get("blocks") or blocks.get("sections") or []
     out: list[dict[str, Any]] = []
@@ -391,6 +410,11 @@ def normalize_report_blocks(blocks: Any, *, depth: int = 0) -> list[dict[str, An
         if len(out) >= MAX_REPORT_BLOCKS:
             break
         if isinstance(raw, str) and raw.strip():
+            if looks_like_json_payload(raw):
+                parsed = parse_json_payload(raw)
+                if parsed is not None:
+                    out.extend(normalize_report_blocks(parsed, depth=depth + 1))
+                continue
             out.append({"type": "markdown", "text": raw.strip()})
             continue
         if not isinstance(raw, dict):
@@ -547,7 +571,26 @@ def normalize_report_blocks(blocks: Any, *, depth: int = 0) -> list[dict[str, An
             if title:
                 block["title"] = title
             out.append(block)
-    return out
+    unwrapped = _unwrap_json_markdown(out, depth)
+    return unwrapped if unwrapped is not None else out
+
+
+def _unwrap_json_markdown(blocks: list[dict[str, Any]], depth: int) -> list[dict[str, Any]] | None:
+    """If the model stuffed a block array into one markdown string, parse it."""
+    if depth >= MAX_REPORT_DEPTH or len(blocks) != 1 or blocks[0].get("type") != "markdown":
+        return None
+    text = str(blocks[0].get("text") or "")
+    if not looks_like_json_payload(text):
+        return None
+    parsed = parse_json_payload(text)
+    if parsed is None:
+        return [dict(PARSE_FAIL_CALLOUT)] if depth == 0 else []
+    if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+        if parsed[0].get("type") or parsed[0].get("kind") or "blocks" in parsed[0]:
+            return normalize_report_blocks(parsed, depth=depth + 1)
+    if isinstance(parsed, dict) and (parsed.get("blocks") or parsed.get("type") or parsed.get("kind")):
+        return normalize_report_blocks(parsed, depth=depth + 1)
+    return None
 
 
 def normalize_citations(raw: Any) -> list[dict[str, Any]]:

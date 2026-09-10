@@ -123,11 +123,16 @@ export default function App() {
 
   useEffect(() => {
     if (!isMobile || !reportOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setReportOpen(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [isMobile, reportOpen]);
 
   async function send() {
@@ -271,11 +276,13 @@ export default function App() {
             onToggleReasoning={() => setShowReasoning((value) => !value)}
             onOpenReport={isMobile && hasReport ? () => setReportOpen(true) : undefined}
           />
-          <Board
-            artifacts={artifactList}
-            display={display}
-            onClose={isMobile && reportOpen ? () => setReportOpen(false) : undefined}
-          />
+          {(!isMobile || reportOpen) && (
+            <Board
+              artifacts={artifactList}
+              display={display}
+              onClose={isMobile && reportOpen ? () => setReportOpen(false) : undefined}
+            />
+          )}
         </div>
       )}
     </div>

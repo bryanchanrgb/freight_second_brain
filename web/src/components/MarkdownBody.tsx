@@ -29,7 +29,11 @@ export default function MarkdownBody({
               {label}
             </a>
           ),
-          table: ({ children: rows }) => <table className="data">{rows}</table>,
+          table: ({ children: rows }) => (
+            <div className="md-table-scroll">
+              <table className="data">{rows}</table>
+            </div>
+          ),
           p: ({ children: nodes }) => <p>{mark(nodes)}</p>,
           li: ({ children: nodes }) => <li>{mark(nodes)}</li>,
           td: ({ children: nodes }) => <td>{mark(nodes)}</td>,

@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Artifact } from "../types";
+import { MOBILE_QUERY, useMediaQuery } from "../useMediaQuery";
 
 type Point = { x: string | number; y: number };
 type Series = { name: string; points: Point[] };
@@ -42,6 +43,7 @@ export function mergeSeries(seriesList: Series[]) {
 }
 
 export default function PrintsChart({ artifact }: { artifact: Artifact }) {
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const payload = artifact.payload as {
     x_label?: string;
     y_label?: string;
@@ -60,9 +62,9 @@ export default function PrintsChart({ artifact }: { artifact: Artifact }) {
     <section className="chart-wrap">
       {artifact.title ? <h2>{artifact.title}</h2> : null}
       {artifact.subtitle ? <div className="caption">{artifact.subtitle}</div> : null}
-      <div style={{ height: multi ? 300 : 280 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <Chart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: multi ? 8 : 0 }}>
+      <div style={{ width: "100%", minWidth: 0, height: isMobile ? 240 : multi ? 300 : 280 }}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <Chart data={rows} margin={{ top: 8, right: isMobile ? 8 : 12, left: 0, bottom: multi ? 8 : 0 }}>
             <defs>
               {keys.map((item) => (
                 <linearGradient key={item.key} id={`fill-${item.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -72,19 +74,23 @@ export default function PrintsChart({ artifact }: { artifact: Artifact }) {
               ))}
             </defs>
             <CartesianGrid stroke="#232a38" strokeDasharray="3 3" />
-            <XAxis dataKey="x" tick={{ fill: "#8b97ab", fontSize: 11 }} />
+            <XAxis dataKey="x" tick={{ fill: "#8b97ab", fontSize: isMobile ? 10 : 11 }} interval="preserveStartEnd" />
             <YAxis
-              tick={{ fill: "#8b97ab", fontSize: 11 }}
+              tick={{ fill: "#8b97ab", fontSize: isMobile ? 10 : 11 }}
               domain={["auto", "auto"]}
               tickFormatter={(v) => Number(v).toLocaleString()}
-              width={64}
-              label={{
-                value: payload.y_label ?? (multi ? "Value" : "Index"),
-                angle: -90,
-                position: "insideLeft",
-                fill: "#8b97ab",
-                fontSize: 11,
-              }}
+              width={isMobile ? 44 : 64}
+              label={
+                isMobile
+                  ? undefined
+                  : {
+                      value: payload.y_label ?? (multi ? "Value" : "Index"),
+                      angle: -90,
+                      position: "insideLeft",
+                      fill: "#8b97ab",
+                      fontSize: 11,
+                    }
+              }
             />
             <Tooltip
               contentStyle={{ background: "#10141c", border: "1px solid #252c3a", color: "#e6edf7" }}

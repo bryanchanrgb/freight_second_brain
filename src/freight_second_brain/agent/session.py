@@ -18,6 +18,7 @@ from freight_second_brain.agent.artifacts import (
     materialize_from_tool,
     merge_print_points,
 )
+from freight_second_brain.agent.json_payload import parse_json_payload
 from freight_second_brain.agent.process_sources import process_source_cards
 from freight_second_brain.agent.source_tags import AGENT_OVERRIDE_FIELDS, coerce_override
 from freight_second_brain.agent.research import (
@@ -91,14 +92,7 @@ _current_session_id: ContextVar[str | None] = ContextVar("freight_sb_session", d
 
 
 def _json_load(value: Any) -> Any:
-    if isinstance(value, dict):
-        return value
-    if not isinstance(value, str):
-        return None
-    try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        return None
+    return parse_json_payload(value)
 
 
 def _tool_payload_text(output: Any) -> str:
@@ -291,8 +285,7 @@ class ResearchDesk:
             citations_json: str | None = None,
         ) -> str:
             session = _require_session()
-            parsed = _json_load(blocks_json)
-            blocks = normalize_report_blocks(parsed if parsed is not None else blocks_json)
+            blocks = normalize_report_blocks(blocks_json)
             citations = normalize_citations(_json_load(citations_json) if citations_json else None)
             if not citations:
                 citations = citations_from_blocks(blocks)
