@@ -1,48 +1,27 @@
 # Freight Second Brain
 
-Agentic research system for **dry-bulk freight rates**. A provenance-aware public-data
-warehouse is built by **code ingest**. Runtime SQL tools read that warehouse; news and
-analysis come from **live web tools**. The system does not invent numerical forecasts.
+Live-web research desk for **dry-bulk freight rates** (BDI, Capesize / Panamax /
+Supramax, iron ore, coal, grain). A LangChain agent on OpenRouter pulls dated
+prints and maritime sources at question time. It quotes sourced figures and
+labelled outlooks; it does not invent numerical forecasts.
 
-## ETL is code ingest
+The public product is `freight-sb agent` and the research-desk UI. Those bind
+**live web tools only**. A local warehouse (code ETL + DuckDB) exists for the
+Cursor/MCP harness and is **not** queried by the deployable agent.
 
-`uv run freight-sb etl` fetches public sources, stores immutable raw snapshots, parses
-**tabular** series into `observations`, writes `sources` + `catalog`, and rebuilds DuckDB.
+## Deployable tools
 
-News, prints, and outlook are **not** stored as claims or events. The deployable agent
-uses `market_feed` / `press_fetch` / `web_search` / `fetch_url` at question time.
+| Tool | Role |
+|---|---|
+| `market_feed` | Dated BDI/BCI and related cargo/energy prints (OilPriceAPI). Needs `OILPRICE_API_TOKEN`. Cite as a reprint, not official Baltic Exchange data. BPI/BSI/BHSI are **not** in this catalog — segment splits come from weeklies / Reuters / brokers. |
+| `press_catalog` | Category map for Hellenic, Splash 247, Shipping Telegraph, gCaptain. |
+| `press_fetch` | Native REST/search on those four sites. Pin a `category` (default `all` is noisy). |
+| `web_search` | Exa. Other publishers (Reuters/Baird, BIMCO reprints, Clarksons, BigMint, Mysteel). Free MCP tier without `EXA_API_KEY`; set the key to lift rate limits. |
+| `fetch_url` | Jina Reader on one chosen URL or PDF. |
 
-| Stage | Who | What |
-|---|---|---|
-| 1. Ingest | Code | `uv run freight-sb etl` |
-| 2. Rebuild SQL | Code | `uv run freight-sb rebuild-sql` (also runs at end of etl) |
-
-Orchestration: skill `freight-etl`.
-
-Do not add keyword matchers for polarity, entities, or duplicates into extractors.
-Series-name maps (`infer_commodity` on Pink Sheet column headers) stay in code because
-they are identifiers, not prose.
-
-## Layout
-
-```
-.cursor/mcp.json    Cursor harness: same ToolRegistry over MCP
-.cursor/skills/     agent skills (ETL, live research, eval judge)
-src/freight_second_brain/
-  catalog/          source register and canonical entity ids
-  etl/              fetch, landing zone, tabular parsers
-  warehouse/        parquet + JSONL + read-only DuckDB
-  qualitative/      date-based freshness only
-  tools/            runtime: schema, sql, show_source, web_search, rss_feed, press_fetch, market_feed, fetch_url
-  agent/            LangChain/OpenRouter research desk (live web; generative report UI)
-  ui/               FastAPI research desk (SSE chat)
-web/                React research-desk frontend
-data/               raw snapshots, warehouse, run manifests
-```
-
-Raw objects are immutable:
-
-`data/raw/{source}/{dataset}/{YYYY}/{MM}/{DD}/{run_id}/`
+The desk also has `present_report` (right-hand generative report) and
+`label_sources`. Warehouse `schema` / `sql` / `show_source` and `rss_feed` stay
+on MCP and `freight-sb tools` only.
 
 ## Setup
 
@@ -50,92 +29,28 @@ Raw objects are immutable:
 uv sync
 ```
 
-Optional keys live in `.env` (see `.env.example`). Code ingest does **not** require
-LLM keys: it uses public files and preview APIs. The agent harness needs whatever
-your Cursor/agent runtime already uses.
+Copy `.env.example` to `.env`. For the agent and desk:
 
-## Run code ingest
-
-```bash
-uv run freight-sb etl --list
-uv run freight-sb etl
-```
-
-Default extractors (verified public / fallback):
-
-| Extractor | What it stores |
+| Variable | Required? |
 |---|---|
-| `world_bank_pink_sheet` | Monthly coal, iron ore, grain, fertilizer, energy prices |
-| `world_bank_api` | GDP and trade indicators |
-| `fao_fpi` | FAO food/cereal price indices |
-| `usda_psd` | Grain/oilseed supply-demand for major exporters/importers |
-| `comtrade` | Annual China/Australia/Brazil dry-bulk trade preview |
-| `mendeley_bdi` | Daily BCI/BPI/BSI/BHSI, 2012–2019, CC BY 4.0 |
-| `trading_economics_bdi` | Current displayed BDI last value (secondary snapshot only) |
-| `yahoo_finance` | BDRY ETF plus energy/grain/FX/VIX proxies |
-| `noaa_enso` | Oceanic Niño Index |
-| `data360_maritime` | UNCTAD port/fleet indicators |
-| `eia_coal` | Filtered EIA coal production/trade/price series |
-| `hellenic_rss` | Raw feed snapshot (`show_source`); live news is `press_fetch` (hellenic dry-bulk) |
-| `qualitative_pages` | Baltic / BIMCO HTML and UNCTAD RMT PDF snapshots |
-
-FRED and IMF extractors are catalogued but disabled by default (timeouts / 403 from this environment). Licensed Baltic, AIS, and broker research stay in the catalog as non-default sources.
-
-A code run is `complete` only when every extractor succeeds. Inspect
-`data/metadata/latest.json` and `data/metadata/quality_report.json`.
-
-## Runtime query tools
-
-After ingest:
-
-```bash
-uv run freight-sb schema
-uv run freight-sb sql "SELECT series_id, observed_at, value FROM observations WHERE series_id ILIKE '%BDI%' ORDER BY observed_at DESC"
-uv run freight-sb tools show_source --json '{"source_id":"mendeley_bdi"}'
-```
-
-Tables: `observations`, `series`, `sources`, `catalog`. `sql` is read-only (`SELECT` /
-`WITH` / `DESCRIBE` / `SHOW` / `EXPLAIN` / `SUMMARIZE` / `FROM`).
-
-The same registry is served to this Cursor workspace over MCP
-(`.cursor/mcp.json` → `uv run freight-sb mcp`). After adding a tool in
-`register_default_tools`, reload the Cursor window so MCP re-lists tools. If MCP
-is not connected, `uv run freight-sb tools` is the same surface:
-
-```bash
-uv run freight-sb tools
-uv run freight-sb tools sql --json '{"query":"SELECT 1 AS n","limit":5}'
-uv run freight-sb tools rss_feed --json '{"limit":5}'
-uv run freight-sb tools market_feed --json '{"action":"catalog"}'
-uv run freight-sb tools market_feed --json '{"action":"latest","codes":"bdi,bci"}'
-```
-
-## Deployable research agent
-
-The LangChain agent (`freight-sb agent` and the desk UI) binds live web tools only
-(`market_feed`, `web_search`, `press_catalog`, `press_fetch`, `fetch_url`). Warehouse
-`schema` / `sql` / `show_source` and `rss_feed` stay on MCP and `freight-sb tools`.
+| `OPENROUTER_API_KEY` | Yes |
+| `OPENROUTER_MODEL` | Optional (default `openai/gpt-4o-mini`) |
+| `OILPRICE_API_TOKEN` | Yes for dated BDI/BCI (`https://www.oilpriceapi.com/auth/signup`) |
+| `EXA_API_KEY` | Optional |
+| `DESK_ACCESS_TOKEN` | Optional locally; set on a public URL so the desk asks for a password |
 
 ```bash
 uv run freight-sb agent --check
 uv run freight-sb agent "What is the latest Baltic Dry Index print this week?"
 ```
 
-Set `OPENROUTER_API_KEY`. Dated **BDI/BCI** prints use `market_feed` and need
-`OILPRICE_API_TOKEN` (free signup: https://www.oilpriceapi.com/auth/signup).
-BPI/BSI are not in the OilPriceAPI catalog — segment splits come from Baltic
-weeklies, Reuters/Baird, or broker notes via `press_fetch` / `web_search`.
-`web_search` uses Exa's hosted MCP free tier without
-`EXA_API_KEY`; set the key to lift rate limits. `press_fetch` and `fetch_url` need
-no Exa key. Override the model with `OPENROUTER_MODEL` or `--model`.
+Override the model with `OPENROUTER_MODEL` or `--model`.
 
-## Research desk UI
+## Research desk
 
-Opens with a collapsible **guide** (introduction + data-source spec). Multi-turn
-**chat** on the left is a short pointer to the **report** on the right (markdown,
-tables, charts, labelled sources with clickable citations). Agent prompts split
-into research routing (`research_system_prompt`) and desk UI rules
-(`desk_system_prompt`, combined in the session).
+Collapsible **guide** (open on first visit), left-hand **chat** (short pointer),
+right-hand **report** (markdown, tables, charts, labelled sources, clickable
+`[1]` citations).
 
 ```bash
 cd web && npm install && npm run build
@@ -145,22 +60,21 @@ uv run freight-sb ui
 Opens at `http://127.0.0.1:8787`. During frontend development, `npm run dev` in
 `web/` proxies `/api` to that server.
 
-Before a deploy, run the desk agent once and save the example session (chat, report,
-and LangGraph traces) as `web/public/preload.json`. Vite copies it into `web/dist`
-on build; the UI hydrates that session on first paint so a visitor can read the
-example and continue the conversation. Reset starts a blank session.
+First paint can hydrate an example session from `web/public/preload.json`
+(copied into `web/dist` on build). Reset starts a blank session. Hosted images
+skip LangGraph traces so the example is read-only memory; a follow-up is a
+fresh agent turn.
 
 ```bash
 uv run freight-sb preload
 uv run freight-sb preload "Identify all predictive claims made in august 2026 regarding short term BDI movements (30 day horizon), by conviction and consensus vs disagreement between analysts. Test these claims against September data."
 ```
 
-## Hosted desk (public URL)
+## Hosted desk
 
-The desk is a long-running FastAPI process (SSE chat), not a serverless function.
-A Docker web service on Render, Railway, Fly.io, or Cloud Run runs the compute
-there; you keep paying OpenRouter / OilPriceAPI / Exa with keys stored as host
-secrets. Warehouse ETL is not required.
+Long-running FastAPI + SSE, not a serverless function. Docker on Railway,
+Render, Fly.io, or Cloud Run. You pay OpenRouter / OilPriceAPI / Exa with keys
+stored as host secrets. No warehouse, no ETL.
 
 ```bash
 docker build -t freight-sb-desk .
@@ -172,19 +86,46 @@ docker run --rm -p 8787:8787 \
   freight-sb-desk
 ```
 
-The image binds `0.0.0.0` and honors `PORT`. Set `DESK_ACCESS_TOKEN` so the unlock
-screen is required; without it anyone with the URL can run the agent on your bill.
-Optional: `EXA_API_KEY`. Do not copy `.env` into the image.
+The image binds `0.0.0.0` and honors `PORT`. With `DESK_ACCESS_TOKEN` set, the
+UI asks for a password (same value). Leave it blank and anyone with the URL can
+run the agent on your bill. Do not copy `.env` into the image.
 
-On Render, connect the GitHub repo and use `render.yaml` (fill `OPENROUTER_API_KEY`
-and `OILPRICE_API_TOKEN`; Render generates `DESK_ACCESS_TOKEN` — copy it from the
-dashboard). Railway picks up `railway.toml`. Health check: `GET /api/health`.
+Railway uses `railway.toml`; Render uses `render.yaml`. Health check:
+`GET /api/health`. Use **one** instance — sessions are in-memory and vanish on
+restart.
 
-Use one instance. Sessions are in-memory and reset on restart.
+## Layout
 
-## Rules the agents must keep
+```
+src/freight_second_brain/
+  agent/     LangChain + OpenRouter desk (live web; generative report)
+  ui/        FastAPI + SSE
+  tools/     ToolRegistry (web tools on the desk; warehouse tools on MCP/CLI)
+web/         React research-desk frontend
+```
 
-- Cite URLs, freshness and provenance.
+## Research rules
+
+- Cite URLs, freshness, and provenance.
 - Do not count syndicated copies as independent evidence.
 - Preserve contradictions; do not average them.
-- Numerical forecasts come from versioned models, not free-form generation.
+- Numerical forecasts come from sourced outlooks or versioned models, not
+  free-form generation.
+
+## Local warehouse (optional)
+
+Not used by `freight-sb agent` or the desk. Cursor MCP (`.cursor/mcp.json`) and
+`freight-sb tools` can query a DuckDB warehouse built by code ingest
+(`uv run freight-sb etl`). Orchestration: skill `freight-etl`.
+
+```bash
+uv run freight-sb etl --list
+uv run freight-sb etl
+uv run freight-sb schema
+uv run freight-sb sql "SELECT series_id, observed_at, value FROM observations WHERE series_id ILIKE '%BDI%' ORDER BY observed_at DESC LIMIT 5"
+uv run freight-sb tools rss_feed --json '{"limit":5}'
+```
+
+`sql` is read-only (`SELECT` / `WITH` / `DESCRIBE` / `SHOW` / `EXPLAIN` /
+`SUMMARIZE` / `FROM`). After adding a tool in `register_default_tools`, reload
+the Cursor window so MCP re-lists it.
