@@ -7,9 +7,11 @@ import SourcesPanel from "./SourcesPanel";
 export default function Board({
   artifacts,
   display,
+  onClose,
 }: {
   artifacts: Artifact[];
   display: BoardDisplay;
+  onClose?: () => void;
 }) {
   const reports = useMemo(
     () =>
@@ -84,10 +86,22 @@ export default function Board({
   const show = Boolean(report) && (display.showReport || blocks.length > 0 || reports.length > 0);
 
   return (
-    <section className="board">
+    <section
+      className={`board${onClose ? " overlay" : ""}`}
+      {...(onClose
+        ? { role: "dialog", "aria-modal": true, "aria-labelledby": "report-heading" }
+        : {})}
+    >
       <div className="pane-header">
-        <span>Report</span>
-        <span>{display.turn ? `turn ${display.turn}` : "awaiting query"}</span>
+        <span id="report-heading">Report</span>
+        <div className="pane-actions">
+          <span className="pane-status">{display.turn ? `turn ${display.turn}` : "awaiting query"}</span>
+          {onClose ? (
+            <button type="button" className="toggle overlay-close" onClick={onClose} autoFocus>
+              Close
+            </button>
+          ) : null}
+        </div>
       </div>
       {reports.length > 1 ? (
         <div className="report-history" role="tablist" aria-label="Report history">

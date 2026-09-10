@@ -91,6 +91,11 @@ def test_registry_exposes_press_tools(settings) -> None:
     assert "Defaults to all" in cat_desc
     assert "dry-bulk (BDI composite color)" in cat_desc
     assert "IC Shipbrokers" in cat_desc
+    assert "Do not call press_catalog first" in fetch["description"]
+    catalog = next(spec for spec in registry.list_tools() if spec["name"] == "press_catalog")
+    assert "do not call this first" in catalog["description"].lower()
+    market = next(spec for spec in registry.list_tools() if spec["name"] == "market_feed")
+    assert "Skip it unless you need a live alias check" in market["description"]
 
 
 def test_press_fetch_default_all_and_pinned_desks(monkeypatch) -> None:

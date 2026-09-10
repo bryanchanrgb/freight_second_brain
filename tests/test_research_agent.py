@@ -23,12 +23,8 @@ def test_research_system_prompt_pins_horizon() -> None:
     assert "- rss_feed" not in prompt
     assert "press_fetch" in prompt
     assert "dry-bulk" in prompt
-    assert "weekly-brokers" in prompt
-    assert "IC Shipbrokers" in prompt
-    assert "dry-cargo" in prompt
-    assert "gcaptain" in prompt
-    assert "telegraph" in prompt
-    assert "Default category is all" in prompt
+    assert "Do not call press_catalog first" in prompt
+    assert "read each tool's description" in prompt.lower()
     assert "fetch_url" in prompt
     assert "Do not invent numerical forecasts" in prompt
     assert "No stored claims" in prompt
@@ -37,9 +33,13 @@ def test_research_system_prompt_pins_horizon() -> None:
     assert "OilPriceAPI" in prompt
     assert "empty_window" in prompt
     assert "independence group" in prompt
-    assert "BPI is not in the catalog" in prompt
+    assert "BPI/BSI/BHSI are unavailable" in prompt
     assert "Panamax/BPI" in prompt
     assert "Keep the visible chat reply brief" in prompt
+    assert "Effort" in prompt
+    assert "inventory this session" in prompt
+    assert "0–2 tools" in prompt
+    assert "Latest print only" in prompt
     assert "40% Capesize / 30% Panamax / 30% Supramax" in prompt
     assert "Handysize is not in the BDI" in prompt
     assert "Investment advice" in prompt

@@ -35,6 +35,8 @@ Desk UI: the right pane is a generative report with a labelled source list below
 
 Chat format (required): one or two sentences with the headline answer, then a final line exactly: "See the report for sources and charts." No preamble, recap, or extra headings.
 
+Report length follows the question. A latest-print or definitional ask: KPIs and a sentence — not a driver essay. A deep-research ask: tables, charts, and labelled vintages as below. If this turn rests on sources already in the session, cite them; do not refetch identical URLs.
+
 present_report (required every turn):
 - subtitle (required): "As of YYYY-MM-DD · {horizon}" using the horizon you pinned (session/week, 1–2 months, 1–8 quarters, history, structural).
 - Prefer tables and charts over prose walls. Chart market_feed history; do not paste long series into chat.
@@ -166,26 +168,23 @@ def friendly_error_message(exc: BaseException | str) -> str:
     text = str(exc).strip()
     lower = text.lower()
     if _is_recursion_error(exc if isinstance(exc, BaseException) else RuntimeError(text)):
-        return f"Stopped: the agent reached the maximum of {MAX_RECURSION} steps. Try a narrower question."
+        return f"Step limit: the search stopped after {MAX_RECURSION} steps. Try a narrower question."
     if "oilprice_api_token" in lower or ("oilpriceapi" in lower and "token" in lower):
         return (
-            "OilPriceAPI token is not set. Add OILPRICE_API_TOKEN to .env for dated BDI/BCI prints, "
-            "or ask a narrative-only question."
+            "Market data unavailable: OilPriceAPI is not configured. "
+            "Dated Baltic prints need a token, or ask a narrative-only question."
         )
     if "empty_window" in lower:
         return (
-            "The requested price history returned no data. Baltic series on this feed start in 2026; "
+            "No price history for that window. Baltic series on this feed start in 2026; "
             "older windows are empty."
         )
     if "openrouter" in lower and ("key" in lower or "401" in text or "403" in text):
-        return "OpenRouter API key missing or invalid. Set OPENROUTER_API_KEY on the host, then restart."
+        return "Language model unavailable: the OpenRouter key is missing or invalid."
     if "unknown session" in lower:
-        return "Session expired. Refresh the page to start a new session."
+        return "Session expired. Refresh the page to start again."
     if lower in {"internal server error", "500"} or text.startswith("500"):
-        return (
-            "The desk process crashed on that request. Set OPENROUTER_API_KEY and "
-            "OILPRICE_API_TOKEN on the host, then check the deploy logs."
-        )
+        return "Server error: the desk failed on that request. Try again."
     return text
 
 

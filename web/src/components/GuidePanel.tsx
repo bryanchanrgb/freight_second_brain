@@ -3,7 +3,6 @@ import {
   MARKET_TOOLS,
   PRESS_SOURCES,
   WEB_TOOLS,
-  type ParamSpec,
   type SourceSpec,
 } from "../guide";
 
@@ -22,17 +21,8 @@ export default function GuidePanel({ onHide }: { onHide: () => void }) {
           <p>
             A second brain for analyzing freight information. News, commentary, broker weeklies, outlook
             reports, and cargo notes carry signal that traditional models rarely ingest. This desk uses an
-            agent to fetch those sources, read them, and answer your question with citations.
-          </p>
-
-          <h2>Why generative AI</h2>
-          <p>
-            A language model can work through large volumes of text — extracting a print, a segment split,
-            or an outlook vintage from articles and PDFs. The same tools serve different questions: a session
-            print, a market driver, or a longer horizon. You are not limited to a fixed set of charts.
-          </p>
-          <p>
-            The agent does not invent forecasts. Figures are quoted from sources and labelled by vintage.
+            agent to fetch those sources, read them, and answer your question with citations. The agent does
+            not invent forecasts.
           </p>
 
           <h2>How it works</h2>
@@ -44,10 +34,20 @@ export default function GuidePanel({ onHide }: { onHide: () => void }) {
 
           <h2>This interface</h2>
           <ul>
-            <li><strong>Chat</strong> — multi-turn conversation on the left.</li>
-            <li><strong>Report</strong> — a structured note on the right with prose, tables, and charts.</li>
+            <li><strong>Chat</strong> — multi-turn conversation.</li>
+            <li>
+              <strong>Report</strong> — a structured note with prose, tables, and charts. On a phone, open it
+              from “See the report” in the reply.
+            </li>
             <li><strong>Sources</strong> — labelled cards with citations linked to the report.</li>
           </ul>
+
+          <h2>Future vision</h2>
+          <p>
+            Identify signals in unstructured qualitative data that financial models miss. Test those
+            signals against history to prove they add value. Integrate internal sources for a competitive
+            edge.
+          </p>
           <button type="button" className="guide-start" onClick={onHide}>
             Start researching
           </button>
@@ -71,10 +71,7 @@ export default function GuidePanel({ onHide }: { onHide: () => void }) {
           ))}
 
           <h2>Press sites</h2>
-          <p className="caption">
-            <code>press_fetch</code> — pin a category or the whole site is returned.{" "}
-            <code>press_catalog</code> lists desks and parameters.
-          </p>
+          <p className="caption">News and commentary from these publishers.</p>
           {PRESS_SOURCES.map((source) => (
             <SourceDetails key={source.id} source={source} />
           ))}
@@ -87,7 +84,7 @@ export default function GuidePanel({ onHide }: { onHide: () => void }) {
           <h2>Future access</h2>
           <p className="caption">Not integrated on this desk.</p>
           {FUTURE_SOURCES.map((source) => (
-            <SourceDetails key={source.id} source={source} compact />
+            <SourceDetails key={source.id} source={source} />
           ))}
         </div>
       </div>
@@ -95,7 +92,7 @@ export default function GuidePanel({ onHide }: { onHide: () => void }) {
   );
 }
 
-function SourceDetails({ source, compact = false }: { source: SourceSpec; compact?: boolean }) {
+function SourceDetails({ source }: { source: SourceSpec }) {
   return (
     <details className="guide-source">
       <summary>
@@ -105,49 +102,10 @@ function SourceDetails({ source, compact = false }: { source: SourceSpec; compac
       <div className="guide-source-body">
         <p>{source.summary}</p>
         <p>
-          <strong>Provides.</strong> {source.provides}
+          <strong>Provides:</strong> {source.provides}
         </p>
-        {!compact && source.params && source.params.length > 0 ? <ParamTable params={source.params} /> : null}
-        {!compact && source.categories?.length ? (
-          <dl className="guide-cats">
-            {source.categories.map((cat) => (
-              <div key={cat.id} className="guide-cat">
-                <dt>
-                  <code>{cat.id}</code>
-                </dt>
-                <dd>{cat.detail}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
         {source.notes ? <p className="caption">{source.notes}</p> : null}
       </div>
     </details>
-  );
-}
-
-function ParamTable({ params }: { params: ParamSpec[] }) {
-  return (
-    <table className="data">
-      <thead>
-        <tr>
-          <th>Parameter</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        {params.map((param) => (
-          <tr key={param.name}>
-            <td>
-              <code>{param.name}</code>
-              {param.required ? <span className="guide-req"> required</span> : null}
-            </td>
-            <td className="mono">{param.type}</td>
-            <td>{param.detail}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }

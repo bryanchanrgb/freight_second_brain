@@ -57,7 +57,7 @@ def require_desk():
     try:
         return get_desk()
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=503, detail=friendly_error_message(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=friendly_error_message(exc)) from exc
 

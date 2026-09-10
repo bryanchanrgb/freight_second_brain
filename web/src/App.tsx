@@ -5,10 +5,10 @@ import GuidePanel from "./components/GuidePanel";
 import { createSession, fetchAuth, fetchHealth, loginDesk, stopSession, streamMessage } from "./api";
 import { friendlyDeskError } from "./errors";
 import type { Artifact, BoardDisplay, ChatMessage, DeskEvent, Progress } from "./types";
+import { MOBILE_QUERY, useMediaQuery } from "./useMediaQuery";
 
 const GUIDE_KEY = "freight-sb-guide-open";
-const STARTER_DRAFT =
-  "As of today, horizon session/week: what is the latest Baltic Dry Index print, and how did Capesize and Panamax split?";
+const STARTER_DRAFT = "What recent events are impacting Panamax demand?";
 
 function artifactsRecord(items: Artifact[] | undefined): Record<string, Artifact> {
   const next: Record<string, Artifact> = {};
@@ -41,11 +41,14 @@ export default function App() {
   const [guideOpen, setGuideOpen] = useState(readGuideOpen);
   const [locked, setLocked] = useState(false);
   const [accessToken, setAccessToken] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const assistantIdRef = useRef<string | null>(null);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   function setGuide(open: boolean) {
     setGuideOpen(open);
+    if (open) setReportOpen(false);
     try {
       localStorage.setItem(GUIDE_KEY, open ? "1" : "0");
     } catch {
@@ -61,11 +64,6 @@ export default function App() {
       setArtifacts(artifactsRecord(created.artifacts));
       setDisplay(created.display || { showReport: false, turn: 0, activeReportId: null });
       setDraft("");
-      try {
-        if (localStorage.getItem(GUIDE_KEY) === null) setGuideOpen(false);
-      } catch {
-        setGuideOpen(false);
-      }
     } else {
       setDraft(STARTER_DRAFT);
     }
@@ -78,12 +76,6 @@ export default function App() {
         const status = await fetchHealth();
         if (cancelled) return;
         setHealth({ model: status.model, exa_backend: status.exa_backend });
-        if (status.openrouter_key === false) {
-          setError(
-            "OpenRouter API key is not set on this host. Add OPENROUTER_API_KEY in Railway variables and redeploy.",
-          );
-          return;
-        }
         if (status.auth_required) {
           const auth = await fetchAuth();
           if (cancelled) return;
@@ -91,6 +83,12 @@ export default function App() {
             setLocked(true);
             return;
           }
+        }
+        if (status.openrouter_key === false) {
+          setError(
+            "Language model unavailable: the OpenRouter key is missing or invalid.",
+          );
+          return;
         }
         await hydrateSession(true);
       } catch (err) {
@@ -117,6 +115,20 @@ export default function App() {
   }
 
   const artifactList = useMemo(() => Object.values(artifacts), [artifacts]);
+  const hasReport = artifactList.some((item) => item.kind === "report");
+
+  useEffect(() => {
+    if (!isMobile) setReportOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || !reportOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setReportOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMobile, reportOpen]);
 
   async function send() {
     if (!sessionId || busy || !draft.trim()) return;
@@ -195,6 +207,7 @@ export default function App() {
       setMessages([]);
       setArtifacts({});
       setDisplay({ showReport: false, turn: 0, activeReportId: null });
+      setReportOpen(false);
       setDraft(STARTER_DRAFT);
     } catch (err) {
       setError(friendlyDeskError(err instanceof Error ? err.message : String(err)));
@@ -205,7 +218,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          FREIGHT SB <small>RESEARCH DESK</small>
+          Freight Second Brain <small>RESEARCH DESK</small>
         </div>
         <div className="top-meta">
           <button
@@ -224,39 +237,45 @@ export default function App() {
       {locked ? (
         <div className="unlock">
           <form className="unlock-card" onSubmit={unlock}>
-            <h1>Desk locked</h1>
-            <p>Enter the access token set as <code>DESK_ACCESS_TOKEN</code> on the host.</p>
+            <h1>This desk is private</h1>
+            <p>Enter the password to open the research desk.</p>
             <input
               type="password"
               autoComplete="current-password"
               value={accessToken}
               onChange={(event) => setAccessToken(event.target.value)}
-              placeholder="Access token"
-              aria-label="Access token"
+              placeholder="Password"
+              aria-label="Desk password"
             />
             {error ? <div className="error">{error}</div> : null}
             <button type="submit" disabled={!accessToken.trim()}>
-              Unlock
+              Continue
             </button>
           </form>
         </div>
       ) : guideOpen ? (
         <GuidePanel onHide={() => setGuide(false)} />
       ) : (
-        <div className="workspace">
+        <div className={`workspace${isMobile && reportOpen ? " report-overlay-open" : ""}`}>
           <ChatPane
             messages={messages}
             draft={draft}
             busy={busy}
             error={error}
             showReasoning={showReasoning}
+            hasReport={hasReport}
             onDraft={setDraft}
             onSend={send}
             onStop={stop}
             onReset={reset}
             onToggleReasoning={() => setShowReasoning((value) => !value)}
+            onOpenReport={isMobile && hasReport ? () => setReportOpen(true) : undefined}
           />
-          <Board artifacts={artifactList} display={display} />
+          <Board
+            artifacts={artifactList}
+            display={display}
+            onClose={isMobile && reportOpen ? () => setReportOpen(false) : undefined}
+          />
         </div>
       )}
     </div>
@@ -343,7 +362,7 @@ function applyEvent(
     }));
   }
   if (event.type === "error") {
-    const message = friendlyDeskError(String(event.message ?? "The run failed."));
+    const message = friendlyDeskError(String(event.message ?? "Something went wrong."));
     setMessages((prev) =>
       prev.map((item) =>
         item.id === assistantId

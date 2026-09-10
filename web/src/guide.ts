@@ -5,11 +5,6 @@ export type ParamSpec = {
   detail: string;
 };
 
-export type CategorySpec = {
-  id: string;
-  detail: string;
-};
-
 export type SourceSpec = {
   id: string;
   name: string;
@@ -17,87 +12,40 @@ export type SourceSpec = {
   summary: string;
   provides: string;
   params?: ParamSpec[];
-  categories?: CategorySpec[];
   notes?: string;
 };
-
-export const PRESS_PARAMS: ParamSpec[] = [
-  { name: "site", type: "enum", required: true, detail: "hellenic | splash | telegraph | gcaptain" },
-  { name: "category", type: "string", detail: "Desk to pin. Default is all (whole site)." },
-  { name: "query", type: "string", detail: "Keyword search." },
-  { name: "after", type: "date", detail: "ISO date lower bound." },
-  { name: "before", type: "date", detail: "ISO date upper bound." },
-  { name: "limit", type: "integer", detail: "Max entries (default 12, max 20)." },
-  { name: "page", type: "integer", detail: "Page number (default 1)." },
-];
 
 export const PRESS_SOURCES: SourceSpec[] = [
   {
     id: "hellenic",
     name: "Hellenic Shipping News",
     tool: "press_fetch",
-    summary: "Daily BDI composites and broker PDFs.",
+    summary: "Daily dry-bulk market news and broker weeklies.",
     provides:
-      "Composite BDI headlines, Cape/Panamax colour, weekly broker reports, dry TCE sheet, and iron-ore prices. Narrative recall of Baltic commentary via WordPress REST excerpts. Use market_feed for the print itself.",
-    params: PRESS_PARAMS,
-    categories: [
-      { id: "all", detail: "Whole site." },
-      { id: "dry-bulk", detail: "Daily BDI composite and segment colour." },
-      { id: "weekly-brokers", detail: "Broker weeklies and PDFs." },
-      { id: "weekly-tce", detail: "Weekly dry TCE estimates." },
-      { id: "iron-ore", detail: "Chinese iron-ore and steelmaking prices." },
-      { id: "freight-news", detail: "Oil/LNG cargo, not BDI prints." },
-      { id: "commodity", detail: "Commodity news." },
-      { id: "ports", detail: "Port and terminal news." },
-      { id: "international", detail: "General maritime." },
-    ],
-    notes: "Daily posts are composite-only; they do not include a Cape/Panamax split.",
+      "BDI composite headlines, Cape and Panamax colour, weekly broker reports, dry TCE estimates, and iron-ore notes. Headlines describe the composite move; dated index prints come from the market feed.",
+    notes: "Daily posts usually quote the composite BDI only, not a Cape/Panamax split.",
   },
   {
     id: "splash",
     name: "Splash 247",
     tool: "press_fetch",
-    summary: "Trade press with a dry-cargo desk.",
-    provides: "Bulker fixtures, fleet news, and dry-cargo coverage. Pin dry-cargo; other sections cover containers and tankers.",
-    params: PRESS_PARAMS,
-    categories: [
-      { id: "all", detail: "Whole site." },
-      { id: "dry-cargo", detail: "Bulker fixtures and fleet." },
-      { id: "containers", detail: "Container liner news." },
-      { id: "tankers", detail: "Tanker news." },
-      { id: "ports", detail: "Ports and logistics." },
-    ],
+    summary: "Trade press covering dry cargo, containers, and tankers.",
+    provides: "Bulker fixtures and fleet news, plus container, tanker, and port coverage on other desks.",
   },
   {
     id: "telegraph",
     name: "Shipping Telegraph",
     tool: "press_fetch",
     summary: "Freight commentary and fixtures.",
-    provides: "IC Shipbrokers daily colour, bulker news, and market notes. Qualitative context, not Baltic prints.",
-    params: PRESS_PARAMS,
-    categories: [
-      { id: "all", detail: "Whole site." },
-      { id: "freight-news", detail: "IC Shipbrokers commentary and fixtures." },
-      { id: "dry-bulk", detail: "Bulker-only items." },
-      { id: "shipping-reports", detail: "Market reports." },
-      { id: "shipping-news", detail: "General shipping." },
-      { id: "commodity", detail: "Commodity news." },
-    ],
+    provides:
+      "IC Shipbrokers colour, bulker news, and market notes. Useful context; not a source of official Baltic prints.",
   },
   {
     id: "gcaptain",
     name: "gCaptain",
     tool: "press_fetch",
     summary: "Operational maritime news.",
-    provides: "Mixed coverage including occasional dry-bulk items. No dedicated desk; pass a query to filter.",
-    params: PRESS_PARAMS,
-    categories: [
-      { id: "all", detail: "Whole site." },
-      { id: "shipping", detail: "Shipping section." },
-      { id: "shipping-news", detail: "Shipping news." },
-      { id: "ports", detail: "Ports." },
-      { id: "offshore", detail: "Offshore." },
-    ],
+    provides: "Shipping, ports, and offshore coverage, with occasional dry-bulk items.",
   },
 ];
 
@@ -124,10 +72,10 @@ export const MARKET_TOOLS: SourceSpec[] = [
       { name: "end", type: "date", detail: "History end (YYYY-MM-DD)." },
       { name: "past", type: "string", detail: "Relative window: 7d, 30d (free default), 3m, 6m, 1y." },
       { name: "limit", type: "integer", detail: "Max daily rows (default 120, max 500)." },
-      { name: "live", type: "boolean", detail: "catalog only: merge live commodity list (uses one request)." },
+      { name: "live", type: "boolean", detail: "catalog only: include the live commodity list." },
     ],
     notes:
-      "Requires OILPRICE_API_TOKEN. BPI and BSI are not in the catalog. Baltic history on this feed starts in 2026; older windows return empty.",
+      "Requires an OilPriceAPI token. BPI and BSI are not in the catalog. Baltic history on this feed starts in 2026; older windows return empty.",
   },
 ];
 
@@ -136,8 +84,8 @@ export const WEB_TOOLS: SourceSpec[] = [
     id: "press_catalog",
     name: "Press catalog",
     tool: "press_catalog",
-    summary: "Lists press sites and category guides.",
-    provides: "Site ids, categories, and a short guide for each desk. No parameters.",
+    summary: "Lists which press sites the desk can read.",
+    provides: "Hellenic, Splash, Telegraph, and gCaptain, with a short note on each.",
     params: [],
   },
   {
@@ -158,7 +106,7 @@ export const WEB_TOOLS: SourceSpec[] = [
     name: "URL reader",
     tool: "fetch_url",
     summary: "Extracts text from a single article or PDF.",
-    provides: "Full text of one URL. Cookie walls are flagged and should not be treated as source content.",
+    provides: "Full text of one URL. Login walls are flagged and should not be treated as source content.",
     params: [
       { name: "url", type: "string", required: true, detail: "URL to fetch." },
       { name: "max_chars", type: "integer", detail: "Character limit (default 8000)." },
@@ -202,6 +150,6 @@ export const FUTURE_SOURCES: SourceSpec[] = [
     tool: "not integrated",
     summary: "Ingested macro and freight series.",
     provides:
-      "World Bank commodity prices, grain supply-demand, trade flows, fleet indicators, and historical BDI. Available elsewhere in the system; not bound on this agent.",
+      "World Bank commodity prices, grain supply-demand, trade flows, fleet indicators, and historical BDI. Available in the warehouse; not connected to this desk.",
   },
 ];

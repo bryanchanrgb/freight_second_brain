@@ -116,7 +116,9 @@ def test_missing_openrouter_key_is_503(monkeypatch) -> None:
         assert client.get("/api/health").json()["openrouter_key"] is False
         res = client.post("/api/sessions")
         assert res.status_code == 503
-        assert "OPENROUTER_API_KEY" in res.json()["detail"]
+        detail = res.json()["detail"]
+        assert "OpenRouter" in detail
+        assert "OPENROUTER_API_KEY" not in detail
     finally:
         reset_desk()
         get_settings.cache_clear()

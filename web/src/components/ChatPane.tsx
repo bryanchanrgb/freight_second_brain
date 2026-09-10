@@ -1,5 +1,74 @@
 import MarkdownBody from "./MarkdownBody";
 import type { ChatMessage } from "../types";
+import { useState, type ReactNode } from "react";
+
+const TIP_REASONING = "freight-sb-tip-reasoning";
+const TIP_RESET = "freight-sb-tip-reset";
+
+function tipSeen(key: string) {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function markTipSeen(key: string) {
+  try {
+    localStorage.setItem(key, "1");
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function TipButton({
+  tipKey,
+  tip,
+  className,
+  onClick,
+  disabled,
+  pressed,
+  align = "start",
+  children,
+}: {
+  tipKey: string;
+  tip: string;
+  className: string;
+  onClick: () => void;
+  disabled?: boolean;
+  pressed?: boolean;
+  align?: "start" | "end";
+  children: ReactNode;
+}) {
+  const [show, setShow] = useState(() => !tipSeen(tipKey));
+
+  function dismiss() {
+    if (!show) return;
+    setShow(false);
+    markTipSeen(tipKey);
+  }
+
+  return (
+    <span className={`tip-wrap${align === "end" ? " end" : ""}`}>
+      <button
+        type="button"
+        className={className}
+        onClick={onClick}
+        onMouseEnter={dismiss}
+        onFocus={dismiss}
+        disabled={disabled}
+        aria-pressed={pressed}
+      >
+        {children}
+      </button>
+      {show ? (
+        <span className="tip" role="tooltip">
+          {tip}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 export default function ChatPane({
   messages,
@@ -7,22 +76,26 @@ export default function ChatPane({
   busy,
   error,
   showReasoning,
+  hasReport,
   onDraft,
   onSend,
   onStop,
   onReset,
   onToggleReasoning,
+  onOpenReport,
 }: {
   messages: ChatMessage[];
   draft: string;
   busy: boolean;
   error: string | null;
   showReasoning: boolean;
+  hasReport?: boolean;
   onDraft: (value: string) => void;
   onSend: () => void;
   onStop: () => void;
   onReset: () => void;
   onToggleReasoning: () => void;
+  onOpenReport?: () => void;
 }) {
   const canReset = messages.length > 0 || busy;
   return (
@@ -30,23 +103,31 @@ export default function ChatPane({
       <div className="pane-header">
         <span>Session</span>
         <div className="pane-actions">
-          <button
-            type="button"
+          <TipButton
+            tipKey={TIP_REASONING}
+            tip="Show the agent's reasoning for this turn."
             className={`toggle${showReasoning ? " on" : ""}`}
             onClick={onToggleReasoning}
-            aria-pressed={showReasoning}
+            pressed={showReasoning}
+            align="end"
           >
             Reasoning {showReasoning ? "on" : "off"}
-          </button>
-          <button
-            type="button"
+          </TipButton>
+          {hasReport && onOpenReport ? (
+            <button type="button" className="toggle on" onClick={onOpenReport}>
+              View report
+            </button>
+          ) : null}
+          <TipButton
+            tipKey={TIP_RESET}
+            tip="Start a fresh chat."
             className="toggle reset"
             onClick={onReset}
             disabled={!canReset}
           >
             Reset
-          </button>
-          <span>{busy ? "in progress" : "idle"}</span>
+          </TipButton>
+          <span className="pane-status">{busy ? "in progress" : "idle"}</span>
         </div>
       </div>
       <div className="messages">
@@ -58,9 +139,25 @@ export default function ChatPane({
             </p>
           </div>
         ) : null}
-        {messages.map((message) => (
+        {messages.map((message) => {
+          const thinking =
+            message.role === "assistant" &&
+            Boolean(message.streaming) &&
+            !message.content &&
+            !message.progress.some((item) => item.status === "running");
+          return (
           <article key={message.id} className={`msg ${message.role}`}>
             <div className="role">{message.role === "user" ? "You" : "Analyst"}</div>
+            {thinking ? (
+              <div className="thinking" aria-live="polite">
+                Thinking
+                <span className="thinking-dots" aria-hidden="true">
+                  <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
+                </span>
+              </div>
+            ) : null}
             {message.progress.length ? (
               <div className="progress-list">
                 {message.progress.map((item) => (
@@ -79,12 +176,13 @@ export default function ChatPane({
             ) : null}
             {message.role === "assistant" && message.content ? (
               <div className="body">
-                <MarkdownBody>{message.content}</MarkdownBody>
+                <MarkdownBody onOpenReport={onOpenReport}>{message.content}</MarkdownBody>
               </div>
             ) : null}
             {message.role === "user" ? <div className="body">{message.content}</div> : null}
           </article>
-        ))}
+          );
+        })}
       </div>
       {error ? <div className="err">{error}</div> : null}
       <form

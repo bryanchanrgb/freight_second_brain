@@ -127,12 +127,20 @@ def test_desk_prompt_asks_for_generative_report() -> None:
     assert "See the report for sources and charts" in DESK_SYSTEM_PROMPT
     assert "subtitle (required)" in DESK_SYSTEM_PROMPT.lower() or "subtitle (required)" in DESK_SYSTEM_PROMPT
     assert "Session/week print" in DESK_SYSTEM_PROMPT
+    assert "Report length follows the question" in DESK_SYSTEM_PROMPT
+    assert "do not refetch identical URLs" in DESK_SYSTEM_PROMPT
 
 
 def test_friendly_error_message() -> None:
-    assert "maximum" in friendly_error_message(RuntimeError("recursion limit of 100")).lower()
-    assert "OILPRICE_API_TOKEN" in friendly_error_message("Set OILPRICE_API_TOKEN")
+    step = friendly_error_message(RuntimeError("recursion limit of 100")).lower()
+    assert "step limit" in step
+    market = friendly_error_message("Set OILPRICE_API_TOKEN")
+    assert "OilPriceAPI" in market
+    assert "OILPRICE_API_TOKEN" not in market
     assert "2026" in friendly_error_message("empty_window for BDI")
+    model = friendly_error_message("OPENROUTER_API_KEY is not set")
+    assert "OpenRouter" in model
+    assert "OPENROUTER_API_KEY" not in model
 
 
 def test_present_report_upserts_main_artifact(settings, monkeypatch) -> None:

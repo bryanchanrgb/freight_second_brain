@@ -195,16 +195,11 @@ def register_default_tools(registry: ToolRegistry) -> None:
         ToolSpec(
             name="press_catalog",
             description=(
-                "List maritime press sites with a native WordPress search/date API. "
-                "Prefer these over web_search for news from these publishers. "
-                "hellenic (Hellenic Shipping News): Baltic reprints, daily BDI composites, "
-                "broker weeklies (Xclusiv/Intermodal/Banchero), dry TCE sheet, MMI iron ore. "
-                "splash (Splash 247): trade press; dry-cargo desk is bulker fixtures and fleet. "
-                "telegraph (Shipping Telegraph): IC Shipbrokers daily freight color and fixtures; "
-                "not Baltic prints. "
-                "gcaptain (gCaptain): operational/maritime news; no dry-bulk desk. "
-                "Each site includes default_category (all), categories, and category_guide. "
-                "Call before press_fetch if you need to pin a desk."
+                "Live listing of the four WordPress press sites (hellenic, splash, telegraph, "
+                "gcaptain) with categories and category_guide. "
+                "Site ids and desks are already on press_fetch — do not call this first. "
+                "Use only for a live check if press_fetch rejected a site or you need to "
+                "confirm the category list has changed."
             ),
             parameters={"type": "object", "properties": {}},
             handler=_press_catalog,
@@ -227,7 +222,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
                 "telegraph freight-news = IC Shipbrokers commentary and fixtures (not Baltic prints); "
                 "telegraph dry-bulk = bulker-only items. "
                 "gCaptain has no dry-bulk desk — pass query Capesize or Baltic Dry. "
-                "Call press_catalog for the full category_guide. "
+                "Do not call press_catalog first; categories are in the category parameter. "
                 "Does not cover paywalled titles (Lloyd's List, TradeWinds) — use web_search for those."
             ),
             parameters={
@@ -298,7 +293,8 @@ def register_default_tools(registry: ToolRegistry) -> None:
                 "BPI/BSI/BHSI are not in the catalog (404). "
                 "Free published plans: 30 days / Developer 1y / Starter 5y / Professional full archive. "
                 "Obey history_available_from, can_read_1y, can_read_5y, date_min, and empty_window. "
-                "action=catalog lists aliases (no API key). "
+                "action=catalog lists aliases (no API key). Skip it unless you need a live alias check — "
+                "codes are listed on this tool. "
                 "action=latest (default) batches codes in one call — default bdi,bci. "
                 "action=history is daily: free default past=30d; past=1y needs Developer+; "
                 "start around 5 years ago needs Starter+. "
