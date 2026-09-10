@@ -78,6 +78,12 @@ export default function App() {
         const status = await fetchHealth();
         if (cancelled) return;
         setHealth({ model: status.model, exa_backend: status.exa_backend });
+        if (status.openrouter_key === false) {
+          setError(
+            "OpenRouter API key is not set on this host. Add OPENROUTER_API_KEY in Railway variables and redeploy.",
+          );
+          return;
+        }
         if (status.auth_required) {
           const auth = await fetchAuth();
           if (cancelled) return;

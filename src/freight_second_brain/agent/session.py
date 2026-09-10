@@ -178,11 +178,14 @@ def friendly_error_message(exc: BaseException | str) -> str:
             "older windows are empty."
         )
     if "openrouter" in lower and ("key" in lower or "401" in text or "403" in text):
-        return "OpenRouter API key missing or invalid. Check OPENROUTER_API_KEY in .env."
+        return "OpenRouter API key missing or invalid. Set OPENROUTER_API_KEY on the host, then restart."
     if "unknown session" in lower:
         return "Session expired. Refresh the page to start a new session."
     if lower in {"internal server error", "500"} or text.startswith("500"):
-        return "The desk server returned an error. Check the terminal running freight-sb ui for details."
+        return (
+            "The desk process crashed on that request. Set OPENROUTER_API_KEY and "
+            "OILPRICE_API_TOKEN on the host, then check the deploy logs."
+        )
     return text
 
 

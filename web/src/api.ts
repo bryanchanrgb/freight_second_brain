@@ -25,6 +25,8 @@ export type HealthPayload = {
   model: string;
   exa_backend: string;
   auth_required?: boolean;
+  openrouter_key?: boolean;
+  oilprice_key?: boolean;
 };
 
 export type AuthPayload = {

@@ -14,6 +14,8 @@ ENV PYTHONUNBUFFERED=1 \
     UV_NO_DEV=1 \
     HOST=0.0.0.0 \
     PORT=8787 \
+    FREIGHT_SB_DATA_ROOT=/tmp/freight-sb \
+    DESK_PRELOAD_TRACES=0 \
     PATH="/app/.venv/bin:/usr/local/bin:$PATH"
 
 RUN python -m pip install --no-cache-dir uv

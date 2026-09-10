@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -107,8 +109,13 @@ def traces_to_messages(traces: list[dict[str, Any]]) -> list[Any]:
     return messages_from_dict(traces)
 
 
+def _preload_traces_enabled() -> bool:
+    raw = os.environ.get("DESK_PRELOAD_TRACES", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
 def apply_preload(desk: ResearchDesk, payload: dict[str, Any]) -> ResearchSession:
-    """Create a live session whose checkpointer already contains the saved traces."""
+    """Hydrate the example session. Traces are optional (hosted desks skip them)."""
     session = desk.create_session()
     snap = payload.get("session") or {}
     session.title = str(snap.get("title") or payload.get("query") or "Example")
@@ -120,11 +127,14 @@ def apply_preload(desk: ResearchDesk, payload: dict[str, Any]) -> ResearchSessio
         if isinstance(artifact, dict) and artifact.get("id"):
             session.artifacts[str(artifact["id"])] = artifact
     traces = payload.get("traces") or []
-    if traces:
-        desk.agent.update_state(
-            {"configurable": {"thread_id": session.session_id}},
-            {"messages": traces_to_messages(traces)},
-        )
+    if traces and _preload_traces_enabled():
+        try:
+            desk.agent.update_state(
+                {"configurable": {"thread_id": session.session_id}},
+                {"messages": traces_to_messages(traces)},
+            )
+        except Exception:
+            logging.getLogger(__name__).exception("preload traces were not restored")
     return session
 
 

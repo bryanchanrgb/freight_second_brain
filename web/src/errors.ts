@@ -15,7 +15,7 @@ export function friendlyDeskError(raw: string): string {
     return "No price history for that window. Baltic series on this feed start in 2026.";
   }
   if (lower.includes("openrouter") && (lower.includes("key") || text.includes("401") || text.includes("403"))) {
-    return "OpenRouter API key missing or invalid. Check OPENROUTER_API_KEY in .env.";
+    return "OpenRouter API key missing or invalid. Set OPENROUTER_API_KEY on the host (Railway variables), then redeploy.";
   }
   if (lower.includes("unknown session")) {
     return "Session expired. Refresh the page to start again.";
@@ -23,8 +23,8 @@ export function friendlyDeskError(raw: string): string {
   if (lower.includes("unauthorized") || lower.includes('"auth":"required"') || lower.includes('"auth": "required"')) {
     return "This desk is locked. Enter the access token to continue.";
   }
-  if (lower === "internal server error" || text.startsWith("500")) {
-    return "Server error. Check the terminal running freight-sb ui for details.";
+  if (lower === "internal server error" || text.startsWith("500") || lower.includes("internal server error")) {
+    return "The desk process crashed on that request. On Railway, set OPENROUTER_API_KEY and OILPRICE_API_TOKEN on the service (not only locally in .env), then redeploy. Check the Railway deploy logs for the Python traceback.";
   }
 
   try {

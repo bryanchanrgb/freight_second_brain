@@ -160,3 +160,29 @@ spawn eval-018
 /home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
   from pydantic.v1 import BaseModel as BaseModelV1
 eval-018 turn 1 start
+eval-018 turn 1 done tools=['market_feed', 'market_feed', 'press_fetch', 'fetch_url', 'web_search', 'web_search', 'fetch_url', 'web_search', 'press_fetch', 'fetch_url', 'fetch_url', 'fetch_url'] chars=4436
+eval-018 turn 2 start
+eval-017 turn 1 done tools=['market_feed', 'market_feed', 'press_catalog', 'press_fetch', 'web_search', 'web_search', 'fetch_url', 'fetch_url', 'fetch_url', 'fetch_url', 'web_search', 'fetch_url', 'press_fetch', 'fetch_url', 'press_fetch', 'fetch_url', 'web_search'] chars=5476
+eval-017 turn 2 start
+eval-017 turn 2 done tools=[] chars=1327
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-017.json ok=True
+spawn eval-019
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-019 turn 1 start
+eval-018 turn 2 done tools=['press_fetch', 'press_fetch', 'web_search', 'web_search', 'fetch_url', 'fetch_url', 'web_search', 'fetch_url', 'web_search'] chars=4272
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-018.json ok=True
+spawn eval-020
+/home/bryan/freight_second_brain/.venv/lib/python3.14/site-packages/langchain_core/utils/pydantic.py:42: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel as BaseModelV1
+eval-020 turn 1 start
+eval-019 turn 1 done tools=['market_feed', 'market_feed', 'press_fetch', 'web_search', 'web_search', 'web_search', 'fetch_url', 'fetch_url', 'web_search'] chars=4110
+eval-019 turn 2 start
+eval-019 turn 2 done tools=['web_search'] chars=2113
+eval-019 turn 3 start
+eval-020 turn 1 done tools=['market_feed', 'market_feed'] chars=1734
+eval-020 turn 2 start
+eval-019 turn 3 done tools=['web_search', 'web_search'] chars=3658
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-019.json ok=True
+eval-020 turn 2 done tools=['web_search', 'web_search', 'web_search', 'fetch_url', 'fetch_url'] chars=2321
+wrote /home/bryan/freight_second_brain/evals/runs/deepseek-v4-flash-2026-09-09/eval-020.json ok=True

@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from freight_second_brain.agent.preload import apply_preload, candidate_paths, load_preload
 from freight_second_brain.agent.research import startup_check
-from freight_second_brain.agent.session import get_desk
+from freight_second_brain.agent.session import friendly_error_message, get_desk
 from freight_second_brain.config import repo_root
 from freight_second_brain.ui.auth import (
     auth_required,
@@ -53,6 +53,15 @@ def web_dist() -> Path:
     return repo_root() / "web" / "dist"
 
 
+def require_desk():
+    try:
+        return get_desk()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=friendly_error_message(exc)) from exc
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Freight Second Brain", version="0.1.0")
 
@@ -78,6 +87,8 @@ def create_app() -> FastAPI:
             "model": report["model"],
             "exa_backend": report["exa_backend"],
             "auth_required": auth_required(),
+            "openrouter_key": report["openrouter_key"],
+            "oilprice_key": report["oilprice_key"],
         }
 
     @app.get("/api/auth")
@@ -101,11 +112,14 @@ def create_app() -> FastAPI:
 
     @app.post("/api/sessions")
     def create_session(preload: bool = False) -> dict:
-        desk = get_desk()
+        desk = require_desk()
         if preload:
             payload = load_preload()
             if payload:
-                session = apply_preload(desk, payload)
+                try:
+                    session = apply_preload(desk, payload)
+                except Exception as exc:  # noqa: BLE001
+                    raise HTTPException(status_code=500, detail=friendly_error_message(exc)) from exc
                 return {
                     "session_id": session.session_id,
                     "title": session.title,
@@ -132,14 +146,14 @@ def create_app() -> FastAPI:
     @app.get("/api/sessions/{session_id}")
     def get_session(session_id: str) -> dict:
         try:
-            session = get_desk().get(session_id)
+            session = require_desk().get(session_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="unknown session") from exc
         return session.snapshot()
 
     @app.post("/api/sessions/{session_id}/stop")
     def stop_session(session_id: str) -> dict:
-        desk = get_desk()
+        desk = require_desk()
         try:
             return desk.stop_turn(session_id)
         except KeyError as exc:
@@ -147,7 +161,7 @@ def create_app() -> FastAPI:
 
     @app.post("/api/sessions/{session_id}/messages")
     async def post_message(session_id: str, body: ChatRequest, request: Request) -> StreamingResponse:
-        desk = get_desk()
+        desk = require_desk()
         try:
             desk.get(session_id)
         except KeyError as exc:

@@ -39,6 +39,13 @@ def test_research_system_prompt_pins_horizon() -> None:
     assert "independence group" in prompt
     assert "BPI is not in the catalog" in prompt
     assert "Panamax/BPI" in prompt
+    assert "Keep the visible chat reply brief" in prompt
+    assert "40% Capesize / 30% Panamax / 30% Supramax" in prompt
+    assert "Handysize is not in the BDI" in prompt
+    assert "Investment advice" in prompt
+    assert "SCFI" in prompt
+    assert "Adversarial" in prompt
+    assert "broker FFAs" in prompt
     assert MARKET_FEED_AVAILABLE_NOTE.split(".")[0] in prompt
 
 
