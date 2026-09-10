@@ -1165,8 +1165,30 @@ table.data tbody tr:hover { background: #171d29; }
   }
 
   .pane-status { display: none; }
-  .pane-actions { gap: 8px; flex-wrap: wrap; }
+  .pane-actions { gap: 8px; flex-wrap: wrap; align-items: flex-start; }
   .toggle { padding: 6px 10px; font-size: 11px; }
+  .tip-wrap,
+  .tip-wrap.end {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .tip-wrap.end { align-items: flex-end; }
+  .tip,
+  .tip-wrap.end .tip {
+    position: static;
+    left: auto;
+    right: auto;
+    top: auto;
+    width: auto;
+    max-width: 11.5rem;
+    margin-top: 6px;
+    box-shadow: none;
+  }
+  .tip::before,
+  .tip-wrap.end .tip::before { display: none; }
 
   .messages {
     padding: 12px;

@@ -8,7 +8,7 @@ import type { Artifact, BoardDisplay, ChatMessage, DeskEvent, Progress } from ".
 import { MOBILE_QUERY, useMediaQuery } from "./useMediaQuery";
 
 const GUIDE_KEY = "freight-sb-guide-open";
-const STARTER_DRAFT = "What recent events are impacting Panamax demand?";
+const STARTER_DRAFT = "What is the latest Baltic Dry Index print?";
 
 function artifactsRecord(items: Artifact[] | undefined): Record<string, Artifact> {
   const next: Record<string, Artifact> = {};
