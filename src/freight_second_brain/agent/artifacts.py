@@ -29,6 +29,10 @@ PARSE_FAIL_CALLOUT = {
         "was not written. Retry the question."
     ),
 }
+BLOCKS_JSON_ERROR = (
+    "blocks_json is not valid JSON. Call present_report again with a JSON array of "
+    "blocks. Escape double quotes inside strings. Do not wrap the array in markdown fences."
+)
 REPORT_BLOCK_TYPES = (
     "markdown",
     "heading",
@@ -389,6 +393,22 @@ def _normalize_chart_series(raw: Any) -> list[dict[str, Any]]:
         if points:
             series.append({"name": name, "points": points})
     return series
+
+
+def is_parse_fail_blocks(blocks: list[dict[str, Any]]) -> bool:
+    return (
+        len(blocks) == 1
+        and blocks[0].get("type") == "callout"
+        and blocks[0].get("title") == PARSE_FAIL_CALLOUT["title"]
+    )
+
+
+def unusable_blocks_json(value: Any) -> bool:
+    if isinstance(value, (list, dict)):
+        return False
+    if not isinstance(value, str):
+        return False
+    return looks_like_json_payload(value) and parse_json_payload(value) is None
 
 
 def normalize_report_blocks(blocks: Any, *, depth: int = 0) -> list[dict[str, Any]]:

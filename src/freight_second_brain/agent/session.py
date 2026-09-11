@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 from freight_second_brain.agent.artifacts import (
+    BLOCKS_JSON_ERROR,
+    is_parse_fail_blocks,
     new_artifact,
     normalize_citations,
     normalize_report_blocks,
@@ -17,6 +19,7 @@ from freight_second_brain.agent.artifacts import (
     report_id_for_turn,
     materialize_from_tool,
     merge_print_points,
+    unusable_blocks_json,
 )
 from freight_second_brain.agent.json_payload import parse_json_payload
 from freight_second_brain.agent.process_sources import process_source_cards
@@ -84,7 +87,9 @@ PRESENT_REPORT_DESCRIPTION = (
     "diagram {type, title?, nodes:[{id,label}], edges:[{from,to,label?}]}. "
     "citations_json: JSON list of {url, title?, publisher?, as_of?, note?} in [1]..[n] order. "
     "Each url should match a fetched source so the numbered mark opens that card. "
-    "Do not include a citations block in blocks_json."
+    "Do not include a citations block in blocks_json. "
+    "If this tool returns ok=false, fix blocks_json and call present_report again — "
+    "do not leave the turn without a report."
 )
 
 _current_desk: ContextVar["ResearchDesk | None"] = ContextVar("freight_sb_desk", default=None)
@@ -285,7 +290,11 @@ class ResearchDesk:
             citations_json: str | None = None,
         ) -> str:
             session = _require_session()
+            if unusable_blocks_json(blocks_json):
+                return json.dumps({"ok": False, "error": BLOCKS_JSON_ERROR})
             blocks = normalize_report_blocks(blocks_json)
+            if is_parse_fail_blocks(blocks):
+                return json.dumps({"ok": False, "error": BLOCKS_JSON_ERROR})
             citations = normalize_citations(_json_load(citations_json) if citations_json else None)
             if not citations:
                 citations = citations_from_blocks(blocks)

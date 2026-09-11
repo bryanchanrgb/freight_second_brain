@@ -1,6 +1,10 @@
 import json
 
-from freight_second_brain.agent.artifacts import PARSE_FAIL_CALLOUT, normalize_report_blocks
+from freight_second_brain.agent.artifacts import (
+    BLOCKS_JSON_ERROR,
+    PARSE_FAIL_CALLOUT,
+    normalize_report_blocks,
+)
 from freight_second_brain.agent.json_payload import parse_json_payload
 from freight_second_brain.agent.session import (
     ResearchDesk,
@@ -48,11 +52,12 @@ def test_present_report_rejects_raw_json_blob(settings, monkeypatch) -> None:
     broken = '[{"type": "markdown", "text": "Cape said "firm"."}]'
     try:
         tools = {tool.name: tool for tool in desk._ui_tools()}
-        tools["present_report"].invoke({"title": "Broken", "blocks_json": broken})
+        payload = tools["present_report"].invoke({"title": "Broken", "blocks_json": broken})
     finally:
         _current_desk.reset(desk_token)
         _current_session_id.reset(session_token)
-    report = session.artifacts["report-turn-1"]
-    payload = json.dumps(report["payload"])
-    assert broken not in payload
-    assert report["payload"]["blocks"][0]["type"] == "callout"
+    result = json.loads(payload)
+    assert result["ok"] is False
+    assert result["error"] == BLOCKS_JSON_ERROR
+    assert "report-turn-1" not in session.artifacts
+    assert session.show_report is False
